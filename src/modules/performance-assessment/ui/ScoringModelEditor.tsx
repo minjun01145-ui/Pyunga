@@ -23,10 +23,6 @@ export function ScoringModelEditor({ model, onChange, createId }: Props) {
     case "additive_rubric":
       return <AdditiveRubricEditor model={model} onChange={onChange} createId={createId} />;
     case "custom_table":
-      return (
-        <div className="notice">
-          사용자 정의 표 편집기는 후속 단계에서 구현합니다. 현재 구조에는 타입만 보존되어 있습니다.
-        </div>
-      );
+      return <div className="notice">사용자 정의 표는 현재 지원하지 않습니다.</div>;
   }
 }

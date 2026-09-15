@@ -1,18 +1,21 @@
 "use client";
 
 import {
-  createDefaultScoringModel,
   listScoringModelDefinitions,
+  parseScoringModelType,
   type EvaluationSection,
   type ScoringModel,
   type ScoringModelType,
 } from "@/modules/performance-assessment";
+import { createInitialScoringModel } from "./create-initial-scoring-model";
 import { ScoringModelEditor } from "./ScoringModelEditor";
 import { numberFromInput } from "./editors/shared";
 
 const structuredDefinitions = listScoringModelDefinitions().filter(
   (definition) => definition.type !== "custom_table",
 );
+
+type EditableScoringModelType = Exclude<ScoringModelType, "custom_table">;
 
 type Props = {
   section: EvaluationSection;
@@ -23,15 +26,19 @@ type Props = {
 };
 
 export function EvaluationSectionEditor({ section, index, onChange, onDelete, createId }: Props) {
-  function changeModelType(type: ScoringModelType): void {
-    if (type === "custom_table") {
-      return;
-    }
-
+  function changeModelType(type: EditableScoringModelType): void {
     onChange({
       ...section,
-      scoringModel: createDefaultScoringModel(type, section.maxScore, createId),
+      scoringModel: createInitialScoringModel(type, section.maxScore, createId),
     });
+  }
+
+  function handleModelTypeChange(value: string): void {
+    const type = parseScoringModelType(value);
+    if (type === null || type === "custom_table") {
+      return;
+    }
+    changeModelType(type);
   }
 
   return (
@@ -59,7 +66,7 @@ export function EvaluationSectionEditor({ section, index, onChange, onDelete, cr
         </label>
         <label className="field">
           <span>평가기준 방식</span>
-          <select value={section.scoringModel.type} onChange={(event) => changeModelType(event.target.value as ScoringModelType)}>
+          <select value={section.scoringModel.type} onChange={(event) => handleModelTypeChange(event.target.value)}>
             {structuredDefinitions.map((definition) => (
               <option key={definition.type} value={definition.type}>{definition.label}</option>
             ))}

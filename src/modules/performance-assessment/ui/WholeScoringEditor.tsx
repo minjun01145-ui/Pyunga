@@ -1,16 +1,19 @@
 "use client";
 
 import {
-  createDefaultScoringModel,
   listScoringModelDefinitions,
+  parseScoringModelType,
   type PerformanceAssessment,
   type ScoringModelType,
 } from "@/modules/performance-assessment";
+import { createInitialScoringModel } from "./create-initial-scoring-model";
 import { ScoringModelEditor } from "./ScoringModelEditor";
 
 const structuredDefinitions = listScoringModelDefinitions().filter(
   (definition) => definition.type !== "custom_table",
 );
+
+type EditableScoringModelType = Exclude<ScoringModelType, "custom_table">;
 
 type Props = {
   assessment: PerformanceAssessment;
@@ -21,22 +24,29 @@ type Props = {
 export function WholeScoringEditor({ assessment, onChange, createId }: Props) {
   const model = assessment.wholeAssessmentScoringModel;
 
-  function changeModelType(type: ScoringModelType): void {
-    if (type === "custom_table") {
-      return;
-    }
-
+  function changeModelType(type: EditableScoringModelType): void {
     onChange({
       ...assessment,
-      wholeAssessmentScoringModel: createDefaultScoringModel(type, assessment.maxScore, createId),
+      wholeAssessmentScoringModel: createInitialScoringModel(type, assessment.maxScore, createId),
     });
+  }
+
+  function handleModelTypeChange(value: string): void {
+    const type = parseScoringModelType(value);
+    if (type === null || type === "custom_table") {
+      return;
+    }
+    changeModelType(type);
   }
 
   return (
     <div className="whole-editor">
       <label className="field model-select-field">
         <span>평가기준 방식</span>
-        <select value={model?.type ?? "threshold_table"} onChange={(event) => changeModelType(event.target.value as ScoringModelType)}>
+        <select
+          value={model?.type ?? "threshold_table"}
+          onChange={(event) => handleModelTypeChange(event.target.value)}
+        >
           {structuredDefinitions.map((definition) => (
             <option key={definition.type} value={definition.type}>{definition.label}</option>
           ))}

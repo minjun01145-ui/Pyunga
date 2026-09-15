@@ -4,7 +4,7 @@ export default function TeacherPage() {
   return (
     <main>
       <h1 className="page-title">내 평가계획</h1>
-      <p className="muted">인증 연결 전의 개발용 화면입니다.</p>
+      <p className="muted">2027학년도 1학기</p>
 
       <table className="simple-table">
         <thead>
@@ -24,7 +24,7 @@ export default function TeacherPage() {
             <td>3학년</td>
             <td>영어</td>
             <td>작성 전</td>
-            <td><Link href="/teacher/performance-prototype">수행평가 프로토타입 열기</Link></td>
+            <td><Link href="/teacher/performance-prototype">수행평가 작성</Link></td>
           </tr>
         </tbody>
       </table>

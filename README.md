@@ -1,77 +1,77 @@
-# EvalFlow Phase 1 Skeleton
+# EvalFlow
 
-중학교 교과별(학년별) 교수·학습 및 평가계획 작성·검증·취합 시스템의 1단계 프로젝트 골격입니다.
+중학교 교과별(학년별) 교수·학습 및 평가계획의 작성, 검증, 취합을 지원하는 웹 애플리케이션입니다.
 
-이 저장소는 **기능을 많이 만든 시제품**이 아니라, 이후 기능이 늘어나도 구조가 무너지지 않도록 경계를 먼저 만든 골격입니다.
+교사는 문서 서식보다 평가 내용 입력에 집중하고, 평가관리자는 작성 현황과 오류를 한 곳에서 확인할 수 있도록 하는 것을 목표로 합니다.
 
-## 핵심 원칙
+## 현재 구현 범위
 
-- 하나의 Next.js 앱 안에서 역할별 화면을 분리한다.
-- 업무 로직은 `src/app`에 넣지 않는다.
-- 평가 데이터와 문서 출력 서식을 분리한다.
-- 계산 가능한 검증은 순수 TypeScript Domain 코드로 구현한다.
-- 학교/교과별 차이를 `if` 하드코딩으로 처리하지 않는다.
-- AI는 보조 검토에만 사용하며, AI 결과를 공식 데이터에 자동 반영하지 않는다.
-- 시제품 UI는 기본 글꼴·텍스트·표·폼 중심으로 구성한다. 이모지와 장식성 디자인은 사용하지 않는다.
+- 일반 교사 / 평가관리자 / 학교관리자 화면 구분
+- 수행평가 기본정보 입력
+- 영역별 평가와 전체 단일기준 평가
+- 수준별 배점, 횟수·기록별 배점, 조건 충족 개수별 배점, 세부항목 합산
+- 수행평가 점수 구조 검증
+- Domain 규칙 자동 테스트
 
-## 현재 기술 결정
+Firebase Authentication, Firestore 저장, 문서 출력 기능은 이후 단계에서 연결합니다.
 
-- Next.js 16.3.3
-- React 19.2
+## 기술 구성
+
+- Next.js
+- React
 - TypeScript
 - Firebase App Hosting
 - Firebase Authentication
 - Cloud Firestore
-- Firebase Storage (향후 문서/첨부 필요 시)
-- Firebase Admin SDK (서버 권한 작업)
-- Zod (입력/AI 응답 스키마 검증)
-- Vitest (Domain 테스트)
+- Firebase Admin SDK
+- Zod
+- Vitest
 
-## 시작
+## 실행
 
 ```bash
 npm install
 npm run dev
 ```
 
-브라우저에서 `http://localhost:3000`으로 접속합니다.
+개발 서버는 기본적으로 `http://localhost:3000`에서 실행됩니다.
 
 ## 품질 확인
 
 ```bash
-npm run check
+npm run typecheck
+npm run lint
+npm run test:run
 npm run build
 ```
 
-AI 코딩 도구에게 작업을 맡기기 전 반드시 `AGENTS.md`를 읽게 하십시오.
+## 프로젝트 구조
 
-## Phase 1에서 일부러 하지 않은 것
+```text
+src/
+├─ app/                      # 라우팅과 화면 조립
+├─ modules/
+│  ├─ auth/
+│  ├─ school/
+│  ├─ academic-calendar/
+│  ├─ evaluation-plan/
+│  ├─ performance-assessment/
+│  ├─ achievement-standard/
+│  ├─ template/
+│  ├─ document-export/
+│  └─ ai-review/
+└─ shared/                   # 기술 공통 요소
+```
 
-- 실제 Firebase 로그인 화면
-- 실제 학교관리자 계정 발급
-- 평가계획 Firestore 저장
-- PDF 생성
-- AI API 연결
-- NEIS 연계
-- 학교별 템플릿 편집기
+업무 규칙은 `src/modules/*/domain`에 두고 React나 Firebase 구현과 분리합니다.
 
-위 기능은 골격 검증 후 순차적으로 구현합니다.
+## 개발 문서
 
-## 먼저 읽을 문서
-
-1. `docs/01_PRODUCT.md`
-2. `docs/02_DOMAIN.md`
-3. `docs/03_ARCHITECTURE.md`
-4. `AGENTS.md`
-5. `docs/04_SECURITY.md`
-6. `docs/05_UI_GUIDELINES.md`
-7. `docs/06_ROADMAP.md`
-8. `docs/07_DECISIONS.md`
-
-
-## Phase 2 프로토타입
-
-실행 후 `/teacher/performance-prototype`에서 수행평가 세부기준 편집기를 확인할 수 있습니다.
-
-이번 단계는 Firebase 저장 이전에 수행평가 Domain 구조를 검증하기 위한 프로토타입입니다.
-상세 확인 항목은 `docs/10_PHASE2_CHECKLIST.md`를 참고하십시오.
+- `CONTRIBUTING.md`
+- `docs/01_PRODUCT.md`
+- `docs/02_DOMAIN.md`
+- `docs/03_ARCHITECTURE.md`
+- `docs/04_SECURITY.md`
+- `docs/05_UI_GUIDELINES.md`
+- `docs/06_ROADMAP.md`
+- `docs/07_DECISIONS.md`

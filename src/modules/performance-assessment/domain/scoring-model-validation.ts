@@ -79,8 +79,6 @@ export function validateScoringModel(
     }
 
     case "custom_table":
-      // Custom tables are intentionally only structurally stored in Phase 2.
-      // Automatic score validation is not promised for this fallback type.
       break;
   }
 

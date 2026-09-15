@@ -2,7 +2,7 @@ export default function EvaluationAdminPage() {
   return (
     <main>
       <h1 className="page-title">평가계획 관리</h1>
-      <p className="muted">평가관리자용 골격 화면입니다.</p>
+      <p className="muted">2027학년도 1학기</p>
 
       <table className="simple-table">
         <thead>

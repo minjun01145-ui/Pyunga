@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import {
-  createDefaultScoringModel,
   type PerformanceAssessment,
   validatePerformanceAssessment,
 } from "@/modules/performance-assessment";
+import { createInitialScoringModel } from "./create-initial-scoring-model";
 import { PerformanceAssessmentBasicFields } from "./PerformanceAssessmentBasicFields";
 import { PerformanceValidationPanel } from "./PerformanceValidationPanel";
 import { SectionedScoringEditor } from "./SectionedScoringEditor";
@@ -39,7 +39,7 @@ export function PerformanceAssessmentEditor() {
             id: createId(),
             title: "평가영역 1",
             maxScore: current.maxScore,
-            scoringModel: createDefaultScoringModel("level_table", current.maxScore, createId),
+            scoringModel: createInitialScoringModel("level_table", current.maxScore, createId),
           },
         ],
       }));
@@ -49,7 +49,7 @@ export function PerformanceAssessmentEditor() {
     setAssessment((current) => ({
       ...current,
       sections: [],
-      wholeAssessmentScoringModel: createDefaultScoringModel("threshold_table", current.maxScore, createId),
+      wholeAssessmentScoringModel: createInitialScoringModel("threshold_table", current.maxScore, createId),
     }));
   }
 

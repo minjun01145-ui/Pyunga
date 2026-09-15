@@ -1,0 +1,47 @@
+Pyunga Phase 3 전 코드 정리 적용 방법 (Windows / PowerShell)
+
+1. 이 ZIP의 내용을 Pyunga 프로젝트 루트에 그대로 덮어씁니다.
+
+2. AGENTS.md를 공개 저장소에서는 제거하되 로컬에는 남깁니다.
+   새 .gitignore에 /AGENTS.md가 포함되어 있습니다.
+
+   git rm --cached AGENTS.md
+
+3. TypeScript 빌드 캐시가 이미 추적 중이면 Git에서 제거합니다.
+
+   git rm --cached --ignore-unmatch tsconfig.tsbuildinfo
+
+4. 내용이 있는 폴더의 불필요한 .gitkeep을 제거합니다.
+
+   git rm --ignore-unmatch src/modules/performance-assessment/ui/.gitkeep
+
+5. Domain에 있던 편집기 기본값 factory를 제거합니다.
+   동일 역할은 src/modules/performance-assessment/ui/create-initial-scoring-model.ts 로 이동했습니다.
+
+   git rm --ignore-unmatch src/modules/performance-assessment/domain/scoring-model-factory.ts
+
+6. package-lock.json이 없다면 생성합니다.
+
+   npm install
+
+7. 품질 검사를 실행합니다.
+
+   npm run typecheck
+   npm run lint
+   npm run test:run
+   npm run build
+
+8. 문제가 없으면 변경사항을 확인합니다.
+
+   git status
+   git diff
+
+9. 커밋/푸시 예시
+
+   git add .
+   git commit -m "refactor: clean up pre-phase3 project structure"
+   git push
+
+주의:
+- AGENTS.md는 로컬 작업지시서로 계속 사용하지만 .gitignore에 의해 공개 저장소에는 올라가지 않게 합니다.
+- package-lock.json은 생성되면 커밋하는 것이 좋습니다.
