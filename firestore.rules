@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Phase 1 policy: browser clients do not directly mutate business data.
+    // Server-side Next.js code uses Firebase Admin SDK and must perform authorization itself.
+    // These rules intentionally default to deny until a client-read requirement is explicitly designed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

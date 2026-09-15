@@ -17,13 +17,23 @@
 
 ## Phase 2 — 수행평가 Domain Prototype
 
-- 실제 수행평가 입력 모델 확정
+현재 프로토타입 구현 범위:
+
+- 실제 수행평가 입력 모델
+- 영역별 평가 / 전체 단일기준
 - level_table
 - threshold_table
 - criterion_count
 - additive_rubric
 - domain validation
 - 테스트 확대
+- 브라우저 입력 프로토타입
+
+아직 제외:
+
+- custom_table 편집기
+- Firebase 저장
+- 성취기준 연계
 
 ## Phase 3 — 계정/권한
 
