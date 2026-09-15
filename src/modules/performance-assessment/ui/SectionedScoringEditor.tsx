@@ -1,6 +1,7 @@
 "use client";
 
-import { createDefaultScoringModel, type PerformanceAssessment } from "@/modules/performance-assessment";
+import type { PerformanceAssessment } from "@/modules/performance-assessment";
+import { createInitialScoringModel } from "./create-initial-scoring-model";
 import { EvaluationSectionEditor } from "./EvaluationSectionEditor";
 
 type Props = {
@@ -42,7 +43,7 @@ export function SectionedScoringEditor({ assessment, onChange, createId }: Props
               id: createId(),
               title: `평가영역 ${assessment.sections.length + 1}`,
               maxScore: 0,
-              scoringModel: createDefaultScoringModel("level_table", 0, createId),
+              scoringModel: createInitialScoringModel("level_table", 0, createId),
             },
           ],
         })}
