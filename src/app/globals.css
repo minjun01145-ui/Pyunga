@@ -63,9 +63,57 @@ main {
 
 .simple-nav {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 16px;
   padding: 12px 24px;
   border-bottom: 1px solid var(--border);
+}
+
+.app-name {
+  color: var(--text);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.app-navigation-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.evaluation-admin-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: calc(100vh - 57px);
+}
+
+.evaluation-admin-sidebar {
+  padding: 24px 16px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.evaluation-admin-sidebar-title {
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.evaluation-admin-menu {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evaluation-admin-menu li {
+  padding: 9px 10px;
+}
+
+.evaluation-admin-content {
+  min-width: 0;
 }
 
 .simple-table {
@@ -320,8 +368,14 @@ textarea {
 
 @media (max-width: 800px) {
   .form-grid.three-columns,
-  .split-editor {
+  .split-editor,
+  .evaluation-admin-layout {
     grid-template-columns: 1fr;
+  }
+
+  .evaluation-admin-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
   }
 
   main {
