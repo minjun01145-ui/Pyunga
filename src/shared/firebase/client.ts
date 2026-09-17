@@ -14,6 +14,10 @@ export function getFirebaseClientApp(): FirebaseApp {
     return existing;
   }
 
+  if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+    return initializeApp();
+  }
+
   return initializeApp({
     apiKey: requiredPublicEnv("NEXT_PUBLIC_FIREBASE_API_KEY", process.env.NEXT_PUBLIC_FIREBASE_API_KEY),
     authDomain: requiredPublicEnv("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN", process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN),
