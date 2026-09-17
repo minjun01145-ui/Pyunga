@@ -6,8 +6,11 @@ type OllamaJsonClientOptions = {
   model: string;
   apiKey?: string;
   timeoutMs?: number;
+  think?: boolean | "low" | "medium" | "high";
   fetchImplementation?: typeof fetch;
 };
+
+type OllamaClientEnvironmentOptions = Pick<OllamaJsonClientOptions, "timeoutMs" | "think">;
 
 type OllamaChatResponse = {
   message?: {
@@ -30,6 +33,7 @@ export class OllamaJsonClient implements AiJsonClient, AiTextClient {
   private readonly model: string;
   private readonly apiKey?: string;
   private readonly timeoutMs: number;
+  private readonly think?: boolean | "low" | "medium" | "high";
   private readonly fetchImplementation: typeof fetch;
 
   constructor(options: OllamaJsonClientOptions) {
@@ -37,6 +41,7 @@ export class OllamaJsonClient implements AiJsonClient, AiTextClient {
     this.model = options.model;
     this.apiKey = options.apiKey;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.think = options.think;
     this.fetchImplementation = options.fetchImplementation ?? fetch;
   }
 
@@ -63,6 +68,7 @@ export class OllamaJsonClient implements AiJsonClient, AiTextClient {
           model: this.model,
           messages: request.messages,
           stream: false,
+          ...(this.think === undefined ? {} : { think: this.think }),
           options: {
             temperature: request.temperature ?? 0,
           },
@@ -124,7 +130,9 @@ function parseJsonContent(content: string): unknown {
   throw new OllamaAiError("Ollama가 유효한 JSON을 반환하지 않았습니다.");
 }
 
-export function createOllamaJsonClientFromEnv(): OllamaJsonClient {
+export function createOllamaJsonClientFromEnv(
+  options: OllamaClientEnvironmentOptions = {},
+): OllamaJsonClient {
   const model = process.env.OLLAMA_MODEL?.trim();
   if (!model) {
     throw new OllamaAiError("서버 환경변수 OLLAMA_MODEL이 설정되지 않았습니다.");
@@ -140,6 +148,8 @@ export function createOllamaJsonClientFromEnv(): OllamaJsonClient {
     baseUrl,
     model,
     apiKey,
+    timeoutMs: options.timeoutMs,
+    think: options.think,
   });
 }
 

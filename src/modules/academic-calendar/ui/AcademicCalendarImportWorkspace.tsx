@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import type { AcademicCalendarImportCandidate } from "../application/academic-calendar-import";
 
@@ -32,6 +32,20 @@ export function AcademicCalendarImportWorkspace() {
   const [result, setResult] = useState<ImportApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!isLoading) {
+      return;
+    }
+
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1_000);
+
+    return () => window.clearInterval(timer);
+  }, [isLoading]);
 
   const issueCount = useMemo(
     () => result?.events.reduce((sum, event) => sum + event.issues.length, 0) ?? 0,
@@ -47,6 +61,7 @@ export function AcademicCalendarImportWorkspace() {
     }
 
     setIsLoading(true);
+    setElapsedSeconds(0);
     setError(null);
     setResult(null);
 
@@ -104,12 +119,14 @@ export function AcademicCalendarImportWorkspace() {
           </label>
 
           <button className="secondary-button align-start" type="submit" disabled={isLoading}>
-            {isLoading ? "분석 중..." : "학사일정 분석"}
+            {isLoading ? `분석 중 · ${elapsedSeconds}초` : "학사일정 분석"}
           </button>
         </form>
 
         <p className="muted small-copy calendar-import-note">
-          업로드한 PDF의 관련 텍스트는 서버에서 추출된 뒤 설정된 AI 서비스로 전송됩니다. API 키는 브라우저로 전달하지 않습니다.
+          {isLoading
+            ? "문서 분량에 따라 최대 4분 정도 걸릴 수 있습니다. 분석이 끝날 때까지 이 화면을 닫지 마세요."
+            : "업로드한 PDF의 관련 텍스트는 서버에서 추출된 뒤 설정된 AI 서비스로 전송됩니다. API 키는 브라우저로 전달하지 않습니다."}
         </p>
 
         {error ? <p className="validation-error-box">{error}</p> : null}

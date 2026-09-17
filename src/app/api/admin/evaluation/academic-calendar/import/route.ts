@@ -10,6 +10,8 @@ import { createOllamaJsonClientFromEnv, OllamaAiError } from "@/modules/ai-revie
 
 export const runtime = "nodejs";
 
+const ACADEMIC_CALENDAR_AI_TIMEOUT_MS = 240_000;
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
@@ -26,7 +28,10 @@ export async function POST(request: Request) {
 
     const extracted = await extractPdfTextPages(file);
     const source = selectAcademicCalendarSourceText(extracted.pages);
-    const aiClient = createOllamaJsonClientFromEnv();
+    const aiClient = createOllamaJsonClientFromEnv({
+      timeoutMs: ACADEMIC_CALENDAR_AI_TIMEOUT_MS,
+      think: "low",
+    });
     const result = await importAcademicCalendarFromText({
       academicYear,
       sourceText: source.text,
@@ -47,7 +52,11 @@ export async function POST(request: Request) {
     }
 
     if (error instanceof OllamaAiError) {
-      return NextResponse.json({ error: error.message }, { status: 502 });
+      const message =
+        error.message === "Ollama 응답 시간이 초과되었습니다."
+          ? "AI가 4분 안에 학사일정 분석을 마치지 못했습니다. PDF에서 학사일정 페이지만 분리해 다시 시도해 주세요."
+          : error.message;
+      return NextResponse.json({ error: message }, { status: 502 });
     }
 
     console.error("Academic calendar import failed", error);

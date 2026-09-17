@@ -82,6 +82,63 @@ describe("OllamaJsonClient", () => {
       }),
     );
   });
+
+  it("uses the configured thinking level", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ message: { content: "{}" } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const client = new OllamaJsonClient({
+      baseUrl: "https://ollama.com/api",
+      model: "gpt-oss:120b",
+      apiKey: "test-key",
+      think: "low",
+      fetchImplementation,
+    });
+
+    await client.generateJson({
+      messages: [{ role: "user", content: "학사일정을 추출해 주세요." }],
+    });
+
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      "https://ollama.com/api/chat",
+      expect.objectContaining({
+        body: JSON.stringify({
+          model: "gpt-oss:120b",
+          messages: [{ role: "user", content: "학사일정을 추출해 주세요." }],
+          stream: false,
+          think: "low",
+          options: { temperature: 0 },
+        }),
+      }),
+    );
+  });
+
+  it("aborts a request after the configured timeout", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("The operation was aborted.", "AbortError"));
+          });
+        }),
+    );
+    const client = new OllamaJsonClient({
+      baseUrl: "https://ollama.com/api",
+      model: "gpt-oss:120b",
+      apiKey: "test-key",
+      timeoutMs: 5,
+      fetchImplementation,
+    });
+
+    await expect(
+      client.generateText({ messages: [{ role: "user", content: "응답해 주세요." }] }),
+    ).rejects.toThrowError("Ollama 응답 시간이 초과되었습니다.");
+  });
 });
 
 function restoreEnvironmentVariable(name: string, value: string | undefined): void {
