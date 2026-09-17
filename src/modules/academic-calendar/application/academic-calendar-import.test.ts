@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import type { AiJsonClient, AiJsonRequest } from "../../ai-review";
+import type { AiCallMetrics, AiJsonClient, AiJsonRequest } from "../../ai-review";
 import {
   importAcademicCalendarFromText,
   selectAcademicCalendarSourceText,
 } from "./academic-calendar-import";
+
+const aiCallMetrics = {
+  provider: "Ollama Cloud",
+  model: "deepseek-v4.1-flash:cloud",
+  elapsedMs: 12_340,
+  providerDurationMs: 12_000,
+  inputTokens: 2_000,
+  outputTokens: 500,
+  totalTokens: 2_500,
+} satisfies AiCallMetrics;
 
 describe("academic calendar import", () => {
   it("keeps calendar pages that are identified by timetable headers and activities", () => {
@@ -27,50 +37,53 @@ describe("academic calendar import", () => {
       async generateJson(receivedRequest) {
         request = receivedRequest;
         return {
-          documentTitle: "2026학년 학사일정 운영 계획(안)",
-          events: [
-            {
-              title: "중간고사(2,3년)",
-              type: "written_exam",
-              semester: 1,
-              startDate: "2026-04-29",
-              endDate: "2026-04-30",
-              targetGrades: [3, 2, 2],
-              writtenExamKind: "midterm",
-              sourceText: "29일(수), 중간고사(2,3년) 30일(목), 중간고사(2,3년)",
-            },
-            {
-              title: "학급회",
-              type: "school_event",
-              semester: 1,
-              startDate: "2026-04-16",
-              endDate: null,
-              targetGrades: [],
-              writtenExamKind: null,
-              sourceText: "16일(목), 학급회(7h)",
-            },
-            {
-              title: "동아리 활동",
-              type: "school_event",
-              semester: 1,
-              startDate: "2026-04-10",
-              endDate: null,
-              targetGrades: [],
-              writtenExamKind: null,
-              sourceText: "10일(금), 동아리 활동 - 수업(4), 동(2)",
-            },
-            {
-              title: "학교폭력예방교육",
-              type: "school_event",
-              semester: 1,
-              startDate: "2026-03-04",
-              endDate: null,
-              targetGrades: [],
-              writtenExamKind: null,
-              sourceText: "4일(수), 학교폭력예방교육(6h)",
-            },
-          ],
-          warnings: [],
+          data: {
+            documentTitle: "2026학년 학사일정 운영 계획(안)",
+            events: [
+              {
+                title: "중간고사(2,3년)",
+                type: "written_exam",
+                semester: 1,
+                startDate: "2026-04-29",
+                endDate: "2026-04-30",
+                targetGrades: [3, 2, 2],
+                writtenExamKind: "midterm",
+                sourceText: "29일(수), 중간고사(2,3년) 30일(목), 중간고사(2,3년)",
+              },
+              {
+                title: "학급회",
+                type: "school_event",
+                semester: 1,
+                startDate: "2026-04-16",
+                endDate: null,
+                targetGrades: [],
+                writtenExamKind: null,
+                sourceText: "16일(목), 학급회(7h)",
+              },
+              {
+                title: "동아리 활동",
+                type: "school_event",
+                semester: 1,
+                startDate: "2026-04-10",
+                endDate: null,
+                targetGrades: [],
+                writtenExamKind: null,
+                sourceText: "10일(금), 동아리 활동 - 수업(4), 동(2)",
+              },
+              {
+                title: "학교폭력예방교육",
+                type: "school_event",
+                semester: 1,
+                startDate: "2026-03-04",
+                endDate: null,
+                targetGrades: [],
+                writtenExamKind: null,
+                sourceText: "4일(수), 학교폭력예방교육(6h)",
+              },
+            ],
+            warnings: [],
+          },
+          metrics: aiCallMetrics,
         };
       },
     };
@@ -90,46 +103,50 @@ describe("academic calendar import", () => {
     ]);
     expect(request?.messages[0]?.content).toContain("중요도를 판단해서 일정을 생략하지 마세요");
     expect(request?.messages[0]?.content).toContain("학급회, 동아리");
+    expect(result.aiCall).toEqual(aiCallMetrics);
   });
 
   it("deduplicates duplicate source mentions while preserving repeated events on different dates", async () => {
     const aiClient: AiJsonClient = {
       async generateJson() {
         return {
-          documentTitle: "2026학년 학사일정 운영 계획(안)",
-          events: [
-            {
-              title: "학급회",
-              type: "school_event",
-              semester: 1,
-              startDate: "2026-04-16",
-              endDate: null,
-              targetGrades: [],
-              writtenExamKind: null,
-              sourceText: "16일(목), 학급회(7h)",
-            },
-            {
-              title: "학급회",
-              type: "school_event",
-              semester: 1,
-              startDate: "2026-04-16",
-              endDate: null,
-              targetGrades: [],
-              writtenExamKind: null,
-              sourceText: "학급회(7h)",
-            },
-            {
-              title: "학급회",
-              type: "school_event",
-              semester: 1,
-              startDate: "2026-05-21",
-              endDate: null,
-              targetGrades: [],
-              writtenExamKind: null,
-              sourceText: "21일(목), 학급회",
-            },
-          ],
-          warnings: [],
+          data: {
+            documentTitle: "2026학년 학사일정 운영 계획(안)",
+            events: [
+              {
+                title: "학급회",
+                type: "school_event",
+                semester: 1,
+                startDate: "2026-04-16",
+                endDate: null,
+                targetGrades: [],
+                writtenExamKind: null,
+                sourceText: "16일(목), 학급회(7h)",
+              },
+              {
+                title: "학급회",
+                type: "school_event",
+                semester: 1,
+                startDate: "2026-04-16",
+                endDate: null,
+                targetGrades: [],
+                writtenExamKind: null,
+                sourceText: "학급회(7h)",
+              },
+              {
+                title: "학급회",
+                type: "school_event",
+                semester: 1,
+                startDate: "2026-05-21",
+                endDate: null,
+                targetGrades: [],
+                writtenExamKind: null,
+                sourceText: "21일(목), 학급회",
+              },
+            ],
+            warnings: [],
+          },
+          metrics: aiCallMetrics,
         };
       },
     };

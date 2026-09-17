@@ -83,24 +83,33 @@ describe("OllamaJsonClient", () => {
     );
   });
 
-  it("uses the configured thinking level", async () => {
+  it("returns Ollama usage metrics and uses the configured thinking level", async () => {
     const fetchImplementation = vi.fn<typeof fetch>(async () =>
       Promise.resolve(
-        new Response(JSON.stringify({ message: { content: "{}" } }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
+        new Response(
+          JSON.stringify({
+            model: "deepseek-v4.1-flash:cloud",
+            message: { content: "{}" },
+            total_duration: 2_500_000_000,
+            prompt_eval_count: 1_200,
+            eval_count: 300,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
       ),
     );
     const client = new OllamaJsonClient({
       baseUrl: "https://ollama.com/api",
-      model: "gpt-oss:120b",
+      model: "deepseek-v4.1-flash:cloud",
       apiKey: "test-key",
       think: "low",
       fetchImplementation,
     });
 
-    await client.generateJson({
+    const result = await client.generateJson({
       messages: [{ role: "user", content: "학사일정을 추출해 주세요." }],
     });
 
@@ -108,7 +117,7 @@ describe("OllamaJsonClient", () => {
       "https://ollama.com/api/chat",
       expect.objectContaining({
         body: JSON.stringify({
-          model: "gpt-oss:120b",
+          model: "deepseek-v4.1-flash:cloud",
           messages: [{ role: "user", content: "학사일정을 추출해 주세요." }],
           stream: false,
           think: "low",
@@ -116,6 +125,18 @@ describe("OllamaJsonClient", () => {
         }),
       }),
     );
+    expect(result).toEqual({
+      data: {},
+      metrics: {
+        provider: "Ollama Cloud",
+        model: "deepseek-v4.1-flash:cloud",
+        elapsedMs: expect.any(Number),
+        providerDurationMs: 2_500,
+        inputTokens: 1_200,
+        outputTokens: 300,
+        totalTokens: 1_500,
+      },
+    });
   });
 
   it("aborts a request after the configured timeout", async () => {

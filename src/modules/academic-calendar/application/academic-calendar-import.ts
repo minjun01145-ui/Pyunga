@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { AiJsonClient } from "../../ai-review";
+import type { AiCallMetrics, AiJsonClient } from "../../ai-review";
 import type {
   AcademicCalendarEventType,
   AcademicSemester,
@@ -59,6 +59,7 @@ export type AcademicCalendarImportResult = {
   documentTitle?: string;
   events: AcademicCalendarImportCandidate[];
   warnings: string[];
+  aiCall: AiCallMetrics;
 };
 
 const CALENDAR_PAGE_KEYWORDS = [
@@ -154,7 +155,7 @@ export async function importAcademicCalendarFromText(params: {
     ],
   });
 
-  const parsed = aiImportResponseSchema.safeParse(response);
+  const parsed = aiImportResponseSchema.safeParse(response.data);
   if (!parsed.success) {
     throw new AcademicCalendarImportError("AI 응답 형식이 학사일정 스키마와 맞지 않습니다. 다시 분석해 주세요.");
   }
@@ -167,6 +168,7 @@ export async function importAcademicCalendarFromText(params: {
     documentTitle: parsed.data.documentTitle ?? undefined,
     events,
     warnings: parsed.data.warnings,
+    aiCall: response.metrics,
   };
 }
 

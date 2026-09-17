@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
+import { AiCallMetricsPanel, type AiCallMetrics } from "../../ai-review";
 import type { AcademicCalendarImportCandidate } from "../application/academic-calendar-import";
 
 type ImportApiResponse = {
   documentTitle?: string;
   events: AcademicCalendarImportCandidate[];
   warnings: string[];
+  aiCall: AiCallMetrics;
   source: {
     fileName: string;
     totalPages: number;
@@ -133,71 +135,78 @@ export function AcademicCalendarImportWorkspace() {
       </section>
 
       {result ? (
-        <section className="panel">
-          <div className="calendar-result-header">
-            <div>
-              <h2 className="subsection-title">분석 결과</h2>
-              <p className="muted small-copy">
-                {result.documentTitle ?? result.source.fileName} · 전체 {result.source.totalPages}쪽 중 분석 페이지 {formatPages(result.source.selectedPages)}
+        <>
+          <section className="panel">
+            <div className="calendar-result-header">
+              <div>
+                <h2 className="subsection-title">분석 결과</h2>
+                <p className="muted small-copy">
+                  {result.documentTitle ?? result.source.fileName} · 전체 {result.source.totalPages}
+                  쪽 중 분석 페이지 {formatPages(result.source.selectedPages)}
+                </p>
+              </div>
+              <p className="small-copy">
+                {result.events.length}개 일정 · 확인 필요 {issueCount}건
               </p>
             </div>
-            <p className="small-copy">{result.events.length}개 일정 · 확인 필요 {issueCount}건</p>
-          </div>
 
-          {result.warnings.length > 0 ? (
-            <div className="notice calendar-warning-box">
-              <strong>문서 확인 사항</strong>
-              <ul>
-                {result.warnings.map((warning) => (
-                  <li key={warning}>{warning}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+            {result.warnings.length > 0 ? (
+              <div className="notice calendar-warning-box">
+                <strong>문서 확인 사항</strong>
+                <ul>
+                  {result.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
-          <div className="calendar-table-scroll">
-            <table className="simple-table calendar-import-table">
-              <thead>
-                <tr>
-                  <th>학기</th>
-                  <th>구분</th>
-                  <th>일정</th>
-                  <th>대상</th>
-                  <th>기간</th>
-                  <th>근거</th>
-                  <th>확인</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.events.map((calendarEvent, index) => (
-                  <tr key={`${calendarEvent.startDate}-${calendarEvent.title}-${index}`}>
-                    <td>{calendarEvent.semester}학기</td>
-                    <td>{eventTypeLabels[calendarEvent.type]}</td>
-                    <td>{calendarEvent.title}</td>
-                    <td>{formatGrades(calendarEvent.targetGrades)}</td>
-                    <td>{formatDateRange(calendarEvent.startDate, calendarEvent.endDate)}</td>
-                    <td className="calendar-source-cell">{calendarEvent.sourceText}</td>
-                    <td>
-                      {calendarEvent.issues.length > 0 ? (
-                        <ul className="calendar-issue-list">
-                          {calendarEvent.issues.map((issue) => (
-                            <li key={issue}>{issue}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
+            <div className="calendar-table-scroll">
+              <table className="simple-table calendar-import-table">
+                <thead>
+                  <tr>
+                    <th>학기</th>
+                    <th>구분</th>
+                    <th>일정</th>
+                    <th>대상</th>
+                    <th>기간</th>
+                    <th>근거</th>
+                    <th>확인</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {result.events.map((calendarEvent, index) => (
+                    <tr key={`${calendarEvent.startDate}-${calendarEvent.title}-${index}`}>
+                      <td>{calendarEvent.semester}학기</td>
+                      <td>{eventTypeLabels[calendarEvent.type]}</td>
+                      <td>{calendarEvent.title}</td>
+                      <td>{formatGrades(calendarEvent.targetGrades)}</td>
+                      <td>{formatDateRange(calendarEvent.startDate, calendarEvent.endDate)}</td>
+                      <td className="calendar-source-cell">{calendarEvent.sourceText}</td>
+                      <td>
+                        {calendarEvent.issues.length > 0 ? (
+                          <ul className="calendar-issue-list">
+                            {calendarEvent.issues.map((issue) => (
+                              <li key={issue}>{issue}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          <p className="muted small-copy calendar-review-note">
-            이 단계는 AI가 제안한 일정을 검토하는 화면입니다. 분석 결과는 아직 학교 공식 학사일정에 반영되지 않았습니다.
-          </p>
-        </section>
+            <p className="muted small-copy calendar-review-note">
+              이 단계는 AI가 제안한 일정을 검토하는 화면입니다. 분석 결과는 아직 학교 공식
+              학사일정에 반영되지 않았습니다.
+            </p>
+          </section>
+          <AiCallMetricsPanel metrics={result.aiCall} />
+        </>
       ) : null}
     </div>
   );

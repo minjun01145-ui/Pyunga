@@ -461,6 +461,38 @@ textarea {
   font-size: 14px;
 }
 
+.ai-call-metrics-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.ai-call-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.ai-call-metrics-grid > div {
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.ai-call-metrics-grid dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ai-call-metrics-grid dd {
+  margin: 5px 0 0;
+  font-weight: 700;
+}
+
+.ai-call-metrics-note {
+  margin: 0;
+}
+
 .ai-test-panel {
   display: grid;
   gap: 16px;
