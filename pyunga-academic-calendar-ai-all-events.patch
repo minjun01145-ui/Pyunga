@@ -1,0 +1,1319 @@
+diff --git a/.env.example b/.env.example
+index 4c8a861..e0b60c8 100644
+--- a/.env.example
++++ b/.env.example
+@@ -8,3 +8,9 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
+ 
+ # Server-only AI/API secrets belong in Firebase App Hosting secrets / Secret Manager.
+ # Never prefix server secrets with NEXT_PUBLIC_.
++
++# Ollama server settings. For Ollama Cloud use https://ollama.com/api and keep the API key server-only.
++# For a local Ollama server, use http://localhost:11434/api and leave OLLAMA_API_KEY empty.
++OLLAMA_BASE_URL=https://ollama.com/api
++OLLAMA_API_KEY=
++OLLAMA_MODEL=
+diff --git a/package.json b/package.json
+index 824b6ed..352952f 100644
+--- a/package.json
++++ b/package.json
+@@ -2,6 +2,9 @@
+   "name": "evalflow",
+   "version": "0.1.0",
+   "private": true,
++  "engines": {
++    "node": ">=22"
++  },
+   "scripts": {
+     "dev": "next dev",
+     "build": "next build",
+@@ -18,6 +21,7 @@
+     "next": "16.3.3",
+     "react": "19.2.0",
+     "react-dom": "19.2.0",
++    "unpdf": "1.8.1",
+     "zod": "4.5.4"
+   },
+   "devDependencies": {
+diff --git a/src/app/admin/evaluation/_components/EvaluationAdminSidebar.tsx b/src/app/admin/evaluation/_components/EvaluationAdminSidebar.tsx
+index 8c9c120..5cee7a7 100644
+--- a/src/app/admin/evaluation/_components/EvaluationAdminSidebar.tsx
++++ b/src/app/admin/evaluation/_components/EvaluationAdminSidebar.tsx
+@@ -1,7 +1,9 @@
++import Link from "next/link";
++
+ const evaluationAdminMenuItems = [
+-  "학사일정 관리",
+-  "사용자 관리",
+-  "평가계획 양식 관리",
++  { label: "학사일정 관리", href: "/admin/evaluation/academic-calendar" },
++  { label: "사용자 관리" },
++  { label: "평가계획 양식 관리" },
+ ] as const;
+ 
+ export function EvaluationAdminSidebar() {
+@@ -10,7 +12,9 @@ export function EvaluationAdminSidebar() {
+       <h2 className="evaluation-admin-sidebar-title">평가계용</h2>
+       <ul className="evaluation-admin-menu">
+         {evaluationAdminMenuItems.map((item) => (
+-          <li key={item}>{item}</li>
++          <li key={item.label}>
++            {"href" in item ? <Link href={item.href}>{item.label}</Link> : item.label}
++          </li>
+         ))}
+       </ul>
+     </aside>
+diff --git a/src/app/admin/evaluation/academic-calendar/page.tsx b/src/app/admin/evaluation/academic-calendar/page.tsx
+new file mode 100644
+index 0000000..717ce85
+--- /dev/null
++++ b/src/app/admin/evaluation/academic-calendar/page.tsx
+@@ -0,0 +1,13 @@
++import { AcademicCalendarImportWorkspace } from "@/modules/academic-calendar/ui";
++
++export default function AcademicCalendarPage() {
++  return (
++    <main>
++      <h1 className="page-title">학사일정 관리</h1>
++      <p className="page-intro muted">
++        교육계획서의 학사일정을 불러와 학교 일정과 중간·기말고사를 빠짐없이 구조화하여 확인합니다.
++      </p>
++      <AcademicCalendarImportWorkspace />
++    </main>
++  );
++}
+diff --git a/src/app/api/admin/evaluation/academic-calendar/import/route.ts b/src/app/api/admin/evaluation/academic-calendar/import/route.ts
+new file mode 100644
+index 0000000..4889a1d
+--- /dev/null
++++ b/src/app/api/admin/evaluation/academic-calendar/import/route.ts
+@@ -0,0 +1,60 @@
++import { NextResponse } from "next/server";
++
++import {
++  AcademicCalendarImportError,
++  extractPdfTextPages,
++  importAcademicCalendarFromText,
++  selectAcademicCalendarSourceText,
++} from "@/modules/academic-calendar/server";
++import { createOllamaJsonClientFromEnv, OllamaAiError } from "@/modules/ai-review/server";
++
++export const runtime = "nodejs";
++
++export async function POST(request: Request) {
++  try {
++    const formData = await request.formData();
++    const file = formData.get("file");
++    const academicYear = Number(formData.get("academicYear"));
++
++    if (!(file instanceof File)) {
++      return NextResponse.json({ error: "PDF 파일을 선택해 주세요." }, { status: 400 });
++    }
++
++    if (!isPdfFile(file)) {
++      return NextResponse.json({ error: "PDF 파일만 업로드할 수 있습니다." }, { status: 400 });
++    }
++
++    const extracted = await extractPdfTextPages(file);
++    const source = selectAcademicCalendarSourceText(extracted.pages);
++    const aiClient = createOllamaJsonClientFromEnv();
++    const result = await importAcademicCalendarFromText({
++      academicYear,
++      sourceText: source.text,
++      aiClient,
++    });
++
++    return NextResponse.json({
++      ...result,
++      source: {
++        fileName: file.name,
++        totalPages: extracted.totalPages,
++        selectedPages: source.pageNumbers,
++      },
++    });
++  } catch (error) {
++    if (error instanceof AcademicCalendarImportError) {
++      return NextResponse.json({ error: error.message }, { status: 400 });
++    }
++
++    if (error instanceof OllamaAiError) {
++      return NextResponse.json({ error: error.message }, { status: 502 });
++    }
++
++    console.error("Academic calendar import failed", error);
++    return NextResponse.json({ error: "학사일정 분석 중 서버 오류가 발생했습니다." }, { status: 500 });
++  }
++}
++
++function isPdfFile(file: File): boolean {
++  return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
++}
+diff --git a/src/app/globals.css b/src/app/globals.css
+index b8ef372..5aaea3b 100644
+--- a/src/app/globals.css
++++ b/src/app/globals.css
+@@ -382,3 +382,91 @@ textarea {
+     padding: 16px;
+   }
+ }
++
++.evaluation-admin-menu a {
++  display: block;
++}
++
++.calendar-import-form {
++  display: grid;
++  grid-template-columns: 150px minmax(280px, 1fr) auto;
++  align-items: end;
++  gap: 14px;
++  margin-top: 18px;
++}
++
++.calendar-import-form .secondary-button {
++  margin-top: 0;
++}
++
++.calendar-import-note,
++.calendar-review-note {
++  margin-bottom: 0;
++}
++
++.calendar-result-header {
++  display: flex;
++  align-items: flex-start;
++  justify-content: space-between;
++  gap: 20px;
++  margin-bottom: 14px;
++}
++
++.calendar-result-header p {
++  margin: 4px 0 0;
++}
++
++.calendar-warning-box {
++  margin-bottom: 14px;
++}
++
++.calendar-warning-box ul {
++  margin-bottom: 0;
++}
++
++.calendar-table-scroll {
++  overflow-x: auto;
++}
++
++.calendar-import-table {
++  min-width: 980px;
++}
++
++.calendar-import-table th:nth-child(1) {
++  width: 68px;
++}
++
++.calendar-import-table th:nth-child(2) {
++  width: 90px;
++}
++
++.calendar-import-table th:nth-child(4) {
++  width: 100px;
++}
++
++.calendar-import-table th:nth-child(5) {
++  width: 190px;
++}
++
++.calendar-source-cell {
++  min-width: 220px;
++  font-size: 14px;
++}
++
++.calendar-issue-list {
++  min-width: 180px;
++  margin: 0;
++  padding-left: 18px;
++  color: var(--danger);
++  font-size: 14px;
++}
++
++@media (max-width: 800px) {
++  .calendar-import-form {
++    grid-template-columns: 1fr;
++  }
++
++  .calendar-result-header {
++    display: block;
++  }
++}
+diff --git a/src/modules/academic-calendar/application/academic-calendar-import.test.ts b/src/modules/academic-calendar/application/academic-calendar-import.test.ts
+new file mode 100644
+index 0000000..e7c1c41
+--- /dev/null
++++ b/src/modules/academic-calendar/application/academic-calendar-import.test.ts
+@@ -0,0 +1,146 @@
++import { describe, expect, it } from "vitest";
++
++import type { AiJsonClient, AiJsonRequest } from "../../ai-review";
++import {
++  importAcademicCalendarFromText,
++  selectAcademicCalendarSourceText,
++} from "./academic-calendar-import";
++
++describe("academic calendar import", () => {
++  it("keeps calendar pages that are identified by timetable headers and activities", () => {
++    const selection = selectAcademicCalendarSourceText([
++      { pageNumber: 1, text: "학교 교육 목표" },
++      { pageNumber: 2, text: "2026학년도 학사일정 운영 계획" },
++      { pageNumber: 3, text: "월 주 월 화 수 목 금 수업일수 주요교육활동 학급회 동아리" },
++      { pageNumber: 4, text: "예산 운영 계획" },
++      { pageNumber: 5, text: "교직원 연수" },
++    ]);
++
++    expect(selection.pageNumbers).toEqual([1, 2, 3, 4]);
++    expect(selection.text).toContain("주요교육활동 학급회 동아리");
++    expect(selection.text).not.toContain("교직원 연수");
++  });
++
++  it("keeps small and recurring school activities instead of filtering them out", async () => {
++    let request: AiJsonRequest | undefined;
++    const aiClient: AiJsonClient = {
++      async generateJson(receivedRequest) {
++        request = receivedRequest;
++        return {
++          documentTitle: "2026학년 학사일정 운영 계획(안)",
++          events: [
++            {
++              title: "중간고사(2,3년)",
++              type: "written_exam",
++              semester: 1,
++              startDate: "2026-04-29",
++              endDate: "2026-04-30",
++              targetGrades: [3, 2, 2],
++              writtenExamKind: "midterm",
++              sourceText: "29일(수), 중간고사(2,3년) 30일(목), 중간고사(2,3년)",
++            },
++            {
++              title: "학급회",
++              type: "school_event",
++              semester: 1,
++              startDate: "2026-04-16",
++              endDate: null,
++              targetGrades: [],
++              writtenExamKind: null,
++              sourceText: "16일(목), 학급회(7h)",
++            },
++            {
++              title: "동아리 활동",
++              type: "school_event",
++              semester: 1,
++              startDate: "2026-04-10",
++              endDate: null,
++              targetGrades: [],
++              writtenExamKind: null,
++              sourceText: "10일(금), 동아리 활동 - 수업(4), 동(2)",
++            },
++            {
++              title: "학교폭력예방교육",
++              type: "school_event",
++              semester: 1,
++              startDate: "2026-03-04",
++              endDate: null,
++              targetGrades: [],
++              writtenExamKind: null,
++              sourceText: "4일(수), 학교폭력예방교육(6h)",
++            },
++          ],
++          warnings: [],
++        };
++      },
++    };
++
++    const result = await importAcademicCalendarFromText({
++      academicYear: 2026,
++      sourceText:
++        "2026학년도 1학기 학사일정 중간고사 2,3학년 4월 29일과 30일, 학급회, 동아리 활동, 학교폭력예방교육",
++      aiClient,
++    });
++
++    expect(result.events.map((event) => event.title)).toEqual([
++      "학교폭력예방교육",
++      "동아리 활동",
++      "학급회",
++      "중간고사(2,3년)",
++    ]);
++    expect(request?.messages[0]?.content).toContain("중요도를 판단해서 일정을 생략하지 마세요");
++    expect(request?.messages[0]?.content).toContain("학급회, 동아리");
++  });
++
++  it("deduplicates duplicate source mentions while preserving repeated events on different dates", async () => {
++    const aiClient: AiJsonClient = {
++      async generateJson() {
++        return {
++          documentTitle: "2026학년 학사일정 운영 계획(안)",
++          events: [
++            {
++              title: "학급회",
++              type: "school_event",
++              semester: 1,
++              startDate: "2026-04-16",
++              endDate: null,
++              targetGrades: [],
++              writtenExamKind: null,
++              sourceText: "16일(목), 학급회(7h)",
++            },
++            {
++              title: "학급회",
++              type: "school_event",
++              semester: 1,
++              startDate: "2026-04-16",
++              endDate: null,
++              targetGrades: [],
++              writtenExamKind: null,
++              sourceText: "학급회(7h)",
++            },
++            {
++              title: "학급회",
++              type: "school_event",
++              semester: 1,
++              startDate: "2026-05-21",
++              endDate: null,
++              targetGrades: [],
++              writtenExamKind: null,
++              sourceText: "21일(목), 학급회",
++            },
++          ],
++          warnings: [],
++        };
++      },
++    };
++
++    const result = await importAcademicCalendarFromText({
++      academicYear: 2026,
++      sourceText: "2026학년도 학사일정 4월 16일 학급회, 5월 21일 학급회",
++      aiClient,
++    });
++
++    expect(result.events).toHaveLength(2);
++    expect(result.events.map((event) => event.startDate)).toEqual(["2026-04-16", "2026-05-21"]);
++  });
++});
+diff --git a/src/modules/academic-calendar/application/academic-calendar-import.ts b/src/modules/academic-calendar/application/academic-calendar-import.ts
+new file mode 100644
+index 0000000..ad34e5c
+--- /dev/null
++++ b/src/modules/academic-calendar/application/academic-calendar-import.ts
+@@ -0,0 +1,317 @@
++import { z } from "zod";
++
++import type { AiJsonClient } from "../../ai-review";
++import type {
++  AcademicCalendarEventType,
++  AcademicSemester,
++  SchoolGrade,
++  WrittenExamKind,
++} from "../domain/academic-calendar-event";
++
++const isoDateSchema = z
++  .string()
++  .regex(/^\d{4}-\d{2}-\d{2}$/)
++  .refine(isRealIsoDate, "실제 존재하는 날짜여야 합니다.");
++
++const schoolGradeSchema = z.union([z.literal(1), z.literal(2), z.literal(3)]);
++
++const aiEventSchema = z.object({
++  title: z.string().trim().min(1).max(120),
++  type: z.enum(["written_exam", "school_event", "vacation", "other"]),
++  semester: z.union([z.literal(1), z.literal(2)]),
++  startDate: isoDateSchema,
++  endDate: isoDateSchema.nullable().optional(),
++  targetGrades: z.array(schoolGradeSchema).max(3).default([]),
++  writtenExamKind: z.enum(["midterm", "final", "other"]).nullable().optional(),
++  sourceText: z.string().trim().min(1).max(300),
++});
++
++const aiImportResponseSchema = z.object({
++  documentTitle: z.string().trim().min(1).max(200).nullable().optional(),
++  events: z.array(aiEventSchema).max(500),
++  warnings: z.array(z.string().trim().min(1).max(300)).max(30).default([]),
++});
++
++export type ExtractedPdfPage = {
++  pageNumber: number;
++  text: string;
++};
++
++export type AcademicCalendarSourceSelection = {
++  text: string;
++  pageNumbers: number[];
++};
++
++export type AcademicCalendarImportCandidate = {
++  academicYear: number;
++  title: string;
++  type: AcademicCalendarEventType;
++  semester: AcademicSemester;
++  startDate: string;
++  endDate?: string;
++  targetGrades: SchoolGrade[];
++  writtenExamKind?: WrittenExamKind;
++  sourceText: string;
++  issues: string[];
++};
++
++export type AcademicCalendarImportResult = {
++  documentTitle?: string;
++  events: AcademicCalendarImportCandidate[];
++  warnings: string[];
++};
++
++const CALENDAR_PAGE_KEYWORDS = [
++  /학사\s*일정/,
++  /교육\s*일정/,
++  /중간\s*고사/,
++  /기말\s*고사/,
++  /정기\s*고사/,
++  /시업식/,
++  /입학식/,
++  /종업식/,
++  /졸업식/,
++  /방학/,
++  /개교기념일/,
++  /재량\s*휴업/,
++  /주요\s*교육\s*활동/,
++  /수업\s*일수/,
++  /학급회/,
++  /동아리/,
++  /영어\s*듣기/,
++  /예방\s*교육/,
++] as const;
++
++const MAX_SOURCE_PAGES = 20;
++const MAX_SOURCE_CHARACTERS = 100_000;
++
++export class AcademicCalendarImportError extends Error {
++  constructor(message: string) {
++    super(message);
++    this.name = "AcademicCalendarImportError";
++  }
++}
++
++export function selectAcademicCalendarSourceText(
++  pages: readonly ExtractedPdfPage[],
++): AcademicCalendarSourceSelection {
++  const normalizedPages = pages.map((page) => ({
++    pageNumber: page.pageNumber,
++    text: normalizeWhitespace(page.text),
++  }));
++
++  const matchingIndexes = normalizedPages
++    .map((page, index) => (CALENDAR_PAGE_KEYWORDS.some((keyword) => keyword.test(page.text)) ? index : -1))
++    .filter((index) => index >= 0);
++
++  if (matchingIndexes.length === 0) {
++    if (normalizedPages.length > MAX_SOURCE_PAGES) {
++      throw new AcademicCalendarImportError(
++        "학사일정 관련 페이지를 찾지 못했습니다. 학사일정 표가 포함된 PDF인지 확인해 주세요.",
++      );
++    }
++
++    return buildSourceSelection(normalizedPages);
++  }
++
++  const selectedIndexes = new Set<number>();
++  for (const index of matchingIndexes) {
++    selectedIndexes.add(index);
++    if (index > 0) selectedIndexes.add(index - 1);
++    if (index + 1 < normalizedPages.length) selectedIndexes.add(index + 1);
++  }
++
++  const selectedPages = [...selectedIndexes]
++    .sort((left, right) => left - right)
++    .slice(0, MAX_SOURCE_PAGES)
++    .map((index) => normalizedPages[index]);
++
++  return buildSourceSelection(selectedPages);
++}
++
++export async function importAcademicCalendarFromText(params: {
++  academicYear: number;
++  sourceText: string;
++  aiClient: AiJsonClient;
++}): Promise<AcademicCalendarImportResult> {
++  validateAcademicYear(params.academicYear);
++
++  if (params.sourceText.trim().length < 20) {
++    throw new AcademicCalendarImportError("학사일정을 분석할 수 있는 문서 텍스트가 충분하지 않습니다.");
++  }
++
++  const response = await params.aiClient.generateJson({
++    temperature: 0,
++    messages: [
++      {
++        role: "system",
++        content: buildSystemPrompt(),
++      },
++      {
++        role: "user",
++        content: buildUserPrompt(params.academicYear, params.sourceText),
++      },
++    ],
++  });
++
++  const parsed = aiImportResponseSchema.safeParse(response);
++  if (!parsed.success) {
++    throw new AcademicCalendarImportError("AI 응답 형식이 학사일정 스키마와 맞지 않습니다. 다시 분석해 주세요.");
++  }
++
++  const events = deduplicateCandidates(
++    parsed.data.events.map((event) => normalizeCandidate(params.academicYear, event)),
++  ).sort((left, right) => left.startDate.localeCompare(right.startDate));
++
++  return {
++    documentTitle: parsed.data.documentTitle ?? undefined,
++    events,
++    warnings: parsed.data.warnings,
++  };
++}
++
++function buildSystemPrompt(): string {
++  return [
++    "당신은 대한민국 중학교의 교육계획서/학사일정 문서에 공식적으로 기록된 일정을 구조화하는 도구입니다.",
++    "중요도를 판단해서 일정을 생략하지 마세요. 학사일정 표 또는 주요교육활동에 일정으로 명시된 항목은 모두 추출하는 것이 원칙입니다.",
++    "학급회, 동아리, 각종 예방교육, 영어듣기평가, 표준화검사, 학생회·학급 임원 선거, 학부모 행사, 체험학습, 진로활동, 문화예술행사, 체육행사, 봉사활동 등 반복되거나 규모가 작은 교육활동도 제외하지 마세요.",
++    "공휴일, 대체공휴일, 재량휴업일, 개교기념일처럼 수업 여부에 영향을 주는 날도 문서에 표시되어 있으면 추출하세요.",
++    "원문에 명시된 사실만 추출하고 날짜, 학년, 행사 종류를 추정하거나 만들어내지 마세요.",
++    "반드시 JSON 객체 하나만 반환하세요. 마크다운 코드블록이나 설명 문장을 붙이지 마세요.",
++    "중간고사와 기말고사는 반드시 written_exam으로 분류하고 대상 학년을 targetGrades에 넣으세요.",
++    "같은 시험이나 같은 행사가 연속된 여러 날짜에 진행되면 의미상 하나의 일정인 경우 startDate와 endDate로 합치세요.",
++    "시험이 아닌 교육활동과 학교 행사는 school_event로 분류하세요. 방학 기간은 vacation으로 분류하세요. 공휴일·휴업일 등 나머지 일정은 other로 분류할 수 있습니다.",
++    "같은 일정이 날짜 칸과 주요교육활동 요약에 중복 기재된 경우 한 번만 반환하되, 서로 다른 날짜의 반복 일정은 각각 별도 일정으로 남기세요.",
++    "sourceText에는 일정명, 날짜, 대상 학년, 시간 정보 등 해당 일정의 근거가 보이도록 원문 일부를 짧게 넣으세요.",
++  ].join("\n");
++}
++
++function buildUserPrompt(academicYear: number, sourceText: string): string {
++  const followingYear = academicYear + 1;
++
++  return [
++    `학년도: ${academicYear}학년도`,
++    `날짜 해석 규칙: ${academicYear}년 3월부터 12월까지는 ${academicYear}년, 1월과 2월은 ${followingYear}년으로 해석하세요. 원문에 연도가 명시되어 있으면 원문을 우선하세요.`,
++    "1학기/2학기 표 제목이 있으면 그 구분을 semester 1 또는 2로 그대로 사용하세요.",
++    "응답 JSON 구조:",
++    '{"documentTitle":"문서 제목 또는 null","events":[{"title":"일정명","type":"written_exam|school_event|vacation|other","semester":1,"startDate":"YYYY-MM-DD","endDate":"YYYY-MM-DD 또는 null","targetGrades":[1,2,3],"writtenExamKind":"midterm|final|other 또는 null","sourceText":"근거 원문"}],"warnings":["원문이 모호해 사람이 확인해야 할 사항"]}',
++    "written_exam이 아닌 일정은 writtenExamKind를 null로 두세요. 대상 학년이 명시되지 않은 일정은 targetGrades를 빈 배열로 두세요.",
++    "일정의 중요도를 임의로 평가하지 말고, 문서에 학사일정으로 기재된 모든 항목을 events에 포함하세요.",
++    "문서:",
++    sourceText,
++  ].join("\n\n");
++}
++
++function normalizeCandidate(
++  academicYear: number,
++  event: z.infer<typeof aiEventSchema>,
++): AcademicCalendarImportCandidate {
++  const issues: string[] = [];
++  const endDate = event.endDate ?? undefined;
++  const targetGrades = [...new Set(event.targetGrades)].sort((left, right) => left - right) as SchoolGrade[];
++
++  const academicYearStart = `${academicYear}-03-01`;
++  const academicYearEnd = `${academicYear + 1}-03-01`;
++
++  if (event.startDate < academicYearStart || event.startDate > academicYearEnd) {
++    issues.push("시작일이 선택한 학년도 범위를 벗어납니다.");
++  }
++
++  if (endDate && endDate < event.startDate) {
++    issues.push("종료일이 시작일보다 빠릅니다.");
++  }
++
++  if (endDate && (endDate < academicYearStart || endDate > academicYearEnd)) {
++    issues.push("종료일이 선택한 학년도 범위를 벗어납니다.");
++  }
++
++  if (event.type === "written_exam" && targetGrades.length === 0) {
++    issues.push("시험 대상 학년을 원문에서 확인해야 합니다.");
++  }
++
++  if (event.type === "written_exam" && !event.writtenExamKind) {
++    issues.push("중간/기말고사 구분을 확인해야 합니다.");
++  }
++
++  return {
++    academicYear,
++    title: event.title,
++    type: event.type,
++    semester: event.semester,
++    startDate: event.startDate,
++    endDate,
++    targetGrades,
++    writtenExamKind: event.type === "written_exam" ? event.writtenExamKind ?? undefined : undefined,
++    sourceText: normalizeWhitespace(event.sourceText),
++    issues,
++  };
++}
++
++function deduplicateCandidates(
++  candidates: readonly AcademicCalendarImportCandidate[],
++): AcademicCalendarImportCandidate[] {
++  const unique = new Map<string, AcademicCalendarImportCandidate>();
++
++  for (const candidate of candidates) {
++    const key = [
++      candidate.type,
++      candidate.title,
++      candidate.startDate,
++      candidate.endDate ?? "",
++      candidate.targetGrades.join(","),
++    ].join("|");
++
++    if (!unique.has(key)) {
++      unique.set(key, candidate);
++    }
++  }
++
++  return [...unique.values()];
++}
++
++function buildSourceSelection(pages: readonly ExtractedPdfPage[]): AcademicCalendarSourceSelection {
++  const selected: ExtractedPdfPage[] = [];
++  let characterCount = 0;
++
++  for (const page of pages) {
++    const section = `--- PAGE ${page.pageNumber} ---\n${page.text}`;
++    if (section.length > MAX_SOURCE_CHARACTERS) {
++      throw new AcademicCalendarImportError("학사일정 페이지의 텍스트가 너무 커서 분석할 수 없습니다.");
++    }
++
++    if (characterCount + section.length > MAX_SOURCE_CHARACTERS) {
++      break;
++    }
++
++    selected.push(page);
++    characterCount += section.length;
++  }
++
++  if (selected.length === 0) {
++    throw new AcademicCalendarImportError("학사일정 문서에서 읽을 수 있는 텍스트를 찾지 못했습니다.");
++  }
++
++  return {
++    text: selected.map((page) => `--- PAGE ${page.pageNumber} ---\n${page.text}`).join("\n\n"),
++    pageNumbers: selected.map((page) => page.pageNumber),
++  };
++}
++
++function normalizeWhitespace(value: string): string {
++  return value.replace(/\r/g, "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
++}
++
++function validateAcademicYear(academicYear: number): void {
++  if (!Number.isInteger(academicYear) || academicYear < 2000 || academicYear > 2100) {
++    throw new AcademicCalendarImportError("학년도 값이 올바르지 않습니다.");
++  }
++}
++
++function isRealIsoDate(value: string): boolean {
++  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
++    return false;
++  }
++
++  const date = new Date(`${value}T00:00:00Z`);
++  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
++}
+diff --git a/src/modules/academic-calendar/domain/academic-calendar-event.ts b/src/modules/academic-calendar/domain/academic-calendar-event.ts
+index 984e0d0..f31964a 100644
+--- a/src/modules/academic-calendar/domain/academic-calendar-event.ts
++++ b/src/modules/academic-calendar/domain/academic-calendar-event.ts
+@@ -4,6 +4,10 @@ export type AcademicCalendarEventType =
+   | "vacation"
+   | "other";
+ 
++export type AcademicSemester = 1 | 2;
++export type SchoolGrade = 1 | 2 | 3;
++export type WrittenExamKind = "midterm" | "final" | "other";
++
+ export type AcademicCalendarEvent = {
+   id: string;
+   schoolId: string;
+@@ -12,4 +16,7 @@ export type AcademicCalendarEvent = {
+   type: AcademicCalendarEventType;
+   startDate: string;
+   endDate?: string;
++  semester?: AcademicSemester;
++  targetGrades?: SchoolGrade[];
++  writtenExamKind?: WrittenExamKind;
+ };
+diff --git a/src/modules/academic-calendar/index.ts b/src/modules/academic-calendar/index.ts
+index 8ff99e0..76a41cf 100644
+--- a/src/modules/academic-calendar/index.ts
++++ b/src/modules/academic-calendar/index.ts
+@@ -1 +1,2 @@
+ export * from "./domain/academic-calendar-event";
++export * from "./application/academic-calendar-import";
+diff --git a/src/modules/academic-calendar/infrastructure/pdf-text-extractor.ts b/src/modules/academic-calendar/infrastructure/pdf-text-extractor.ts
+new file mode 100644
+index 0000000..99913ac
+--- /dev/null
++++ b/src/modules/academic-calendar/infrastructure/pdf-text-extractor.ts
+@@ -0,0 +1,95 @@
++import { extractText, getDocumentProxy } from "unpdf";
++
++import type { ExtractedPdfPage } from "../application/academic-calendar-import";
++import { AcademicCalendarImportError } from "../application/academic-calendar-import";
++
++const MAX_PDF_BYTES = 10 * 1024 * 1024;
++const MAX_PDF_PAGES = 60;
++const MAX_IMAGE_PIXELS = 16_777_216;
++const EXTRACTION_TIMEOUT_MS = 20_000;
++
++export type ExtractedPdfDocument = {
++  totalPages: number;
++  pages: ExtractedPdfPage[];
++};
++
++export async function extractPdfTextPages(file: File): Promise<ExtractedPdfDocument> {
++  if (file.size === 0) {
++    throw new AcademicCalendarImportError("업로드한 PDF가 비어 있습니다.");
++  }
++
++  if (file.size > MAX_PDF_BYTES) {
++    throw new AcademicCalendarImportError("PDF 파일은 10MB 이하만 업로드할 수 있습니다.");
++  }
++
++  const bytes = new Uint8Array(await file.arrayBuffer());
++  if (!hasPdfSignature(bytes)) {
++    throw new AcademicCalendarImportError("올바른 PDF 파일이 아닙니다.");
++  }
++
++  const pdf = await getDocumentProxy(bytes, {
++    maxImageSize: MAX_IMAGE_PIXELS,
++  }).catch(() => {
++    throw new AcademicCalendarImportError(
++      "PDF 파일을 열 수 없습니다. 손상되었거나 지원하지 않는 PDF인지 확인해 주세요.",
++    );
++  });
++
++  try {
++    if (pdf.numPages > MAX_PDF_PAGES) {
++      throw new AcademicCalendarImportError(`PDF는 ${MAX_PDF_PAGES}페이지 이하만 분석할 수 있습니다.`);
++    }
++
++    const extraction = await withTimeout(
++      extractText(pdf, { mergePages: false }),
++      EXTRACTION_TIMEOUT_MS,
++      "PDF 텍스트 추출 시간이 초과되었습니다.",
++    );
++
++    const texts = Array.isArray(extraction.text) ? extraction.text : [extraction.text];
++    const pages = texts
++      .map((text, index) => ({ pageNumber: index + 1, text: text.trim() }))
++      .filter((page) => page.text.length > 0);
++
++    if (pages.length === 0) {
++      throw new AcademicCalendarImportError(
++        "PDF에서 텍스트를 읽지 못했습니다. 스캔 이미지 PDF라면 OCR 처리가 필요합니다.",
++      );
++    }
++
++    return {
++      totalPages: extraction.totalPages,
++      pages,
++    };
++  } finally {
++    await pdf.destroy();
++  }
++}
++
++async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
++  let timer: ReturnType<typeof setTimeout> | undefined;
++
++  try {
++    return await Promise.race([
++      promise,
++      new Promise<never>((_, reject) => {
++        timer = setTimeout(() => reject(new AcademicCalendarImportError(message)), timeoutMs);
++      }),
++    ]);
++  } finally {
++    if (timer) {
++      clearTimeout(timer);
++    }
++  }
++}
++
++function hasPdfSignature(bytes: Uint8Array): boolean {
++  return (
++    bytes.length >= 5 &&
++    bytes[0] === 0x25 &&
++    bytes[1] === 0x50 &&
++    bytes[2] === 0x44 &&
++    bytes[3] === 0x46 &&
++    bytes[4] === 0x2d
++  );
++}
+diff --git a/src/modules/academic-calendar/server.ts b/src/modules/academic-calendar/server.ts
+new file mode 100644
+index 0000000..2e1eb16
+--- /dev/null
++++ b/src/modules/academic-calendar/server.ts
+@@ -0,0 +1,2 @@
++export * from "./index";
++export * from "./infrastructure/pdf-text-extractor";
+diff --git a/src/modules/academic-calendar/ui.ts b/src/modules/academic-calendar/ui.ts
+new file mode 100644
+index 0000000..41eb865
+--- /dev/null
++++ b/src/modules/academic-calendar/ui.ts
+@@ -0,0 +1 @@
++export { AcademicCalendarImportWorkspace } from "./ui/AcademicCalendarImportWorkspace";
+diff --git a/src/modules/academic-calendar/ui/AcademicCalendarImportWorkspace.tsx b/src/modules/academic-calendar/ui/AcademicCalendarImportWorkspace.tsx
+new file mode 100644
+index 0000000..7cbddad
+--- /dev/null
++++ b/src/modules/academic-calendar/ui/AcademicCalendarImportWorkspace.tsx
+@@ -0,0 +1,204 @@
++"use client";
++
++import { useMemo, useState, type FormEvent } from "react";
++
++import type { AcademicCalendarImportCandidate } from "../application/academic-calendar-import";
++
++type ImportApiResponse = {
++  documentTitle?: string;
++  events: AcademicCalendarImportCandidate[];
++  warnings: string[];
++  source: {
++    fileName: string;
++    totalPages: number;
++    selectedPages: number[];
++  };
++};
++
++type ApiErrorResponse = {
++  error?: string;
++};
++
++const eventTypeLabels: Record<AcademicCalendarImportCandidate["type"], string> = {
++  written_exam: "정기고사",
++  school_event: "학교행사",
++  vacation: "방학",
++  other: "기타",
++};
++
++export function AcademicCalendarImportWorkspace() {
++  const [file, setFile] = useState<File | null>(null);
++  const [academicYear, setAcademicYear] = useState(() => getDefaultAcademicYear());
++  const [result, setResult] = useState<ImportApiResponse | null>(null);
++  const [error, setError] = useState<string | null>(null);
++  const [isLoading, setIsLoading] = useState(false);
++
++  const issueCount = useMemo(
++    () => result?.events.reduce((sum, event) => sum + event.issues.length, 0) ?? 0,
++    [result],
++  );
++
++  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
++    event.preventDefault();
++
++    if (!file) {
++      setError("분석할 PDF 파일을 선택해 주세요.");
++      return;
++    }
++
++    setIsLoading(true);
++    setError(null);
++    setResult(null);
++
++    const formData = new FormData();
++    formData.set("file", file);
++    formData.set("academicYear", String(academicYear));
++
++    try {
++      const response = await fetch("/api/admin/evaluation/academic-calendar/import", {
++        method: "POST",
++        body: formData,
++      });
++
++      const body = (await response.json()) as ImportApiResponse | ApiErrorResponse;
++      if (!response.ok) {
++        throw new Error("error" in body && body.error ? body.error : "학사일정 분석에 실패했습니다.");
++      }
++
++      setResult(body as ImportApiResponse);
++    } catch (requestError) {
++      setError(requestError instanceof Error ? requestError.message : "학사일정 분석에 실패했습니다.");
++    } finally {
++      setIsLoading(false);
++    }
++  }
++
++  return (
++    <div className="workspace-stack">
++      <section className="panel">
++        <h2 className="subsection-title">교육계획서에서 학사일정 가져오기</h2>
++        <p className="muted small-copy">
++          PDF의 학사일정 관련 페이지를 찾아 AI로 문서에 기록된 모든 일정과 정기고사를 구조화합니다. 분석 결과는 바로 저장되지 않으며,
++          먼저 아래 표에서 확인합니다.
++        </p>
++
++        <form className="calendar-import-form" onSubmit={handleSubmit}>
++          <label className="field calendar-year-field">
++            <span>학년도</span>
++            <input
++              type="number"
++              min={2000}
++              max={2100}
++              value={academicYear}
++              onChange={(changeEvent) => setAcademicYear(Number(changeEvent.target.value))}
++            />
++          </label>
++
++          <label className="field calendar-file-field">
++            <span>교육계획서 PDF</span>
++            <input
++              type="file"
++              accept="application/pdf,.pdf"
++              onChange={(changeEvent) => setFile(changeEvent.target.files?.[0] ?? null)}
++            />
++          </label>
++
++          <button className="secondary-button align-start" type="submit" disabled={isLoading}>
++            {isLoading ? "분석 중..." : "학사일정 분석"}
++          </button>
++        </form>
++
++        <p className="muted small-copy calendar-import-note">
++          업로드한 PDF의 관련 텍스트는 서버에서 추출된 뒤 설정된 AI 서비스로 전송됩니다. API 키는 브라우저로 전달하지 않습니다.
++        </p>
++
++        {error ? <p className="validation-error-box">{error}</p> : null}
++      </section>
++
++      {result ? (
++        <section className="panel">
++          <div className="calendar-result-header">
++            <div>
++              <h2 className="subsection-title">분석 결과</h2>
++              <p className="muted small-copy">
++                {result.documentTitle ?? result.source.fileName} · 전체 {result.source.totalPages}쪽 중 분석 페이지 {formatPages(result.source.selectedPages)}
++              </p>
++            </div>
++            <p className="small-copy">{result.events.length}개 일정 · 확인 필요 {issueCount}건</p>
++          </div>
++
++          {result.warnings.length > 0 ? (
++            <div className="notice calendar-warning-box">
++              <strong>문서 확인 사항</strong>
++              <ul>
++                {result.warnings.map((warning) => (
++                  <li key={warning}>{warning}</li>
++                ))}
++              </ul>
++            </div>
++          ) : null}
++
++          <div className="calendar-table-scroll">
++            <table className="simple-table calendar-import-table">
++              <thead>
++                <tr>
++                  <th>학기</th>
++                  <th>구분</th>
++                  <th>일정</th>
++                  <th>대상</th>
++                  <th>기간</th>
++                  <th>근거</th>
++                  <th>확인</th>
++                </tr>
++              </thead>
++              <tbody>
++                {result.events.map((calendarEvent, index) => (
++                  <tr key={`${calendarEvent.startDate}-${calendarEvent.title}-${index}`}>
++                    <td>{calendarEvent.semester}학기</td>
++                    <td>{eventTypeLabels[calendarEvent.type]}</td>
++                    <td>{calendarEvent.title}</td>
++                    <td>{formatGrades(calendarEvent.targetGrades)}</td>
++                    <td>{formatDateRange(calendarEvent.startDate, calendarEvent.endDate)}</td>
++                    <td className="calendar-source-cell">{calendarEvent.sourceText}</td>
++                    <td>
++                      {calendarEvent.issues.length > 0 ? (
++                        <ul className="calendar-issue-list">
++                          {calendarEvent.issues.map((issue) => (
++                            <li key={issue}>{issue}</li>
++                          ))}
++                        </ul>
++                      ) : (
++                        "-"
++                      )}
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
++
++          <p className="muted small-copy calendar-review-note">
++            이 단계는 AI가 제안한 일정을 검토하는 화면입니다. 분석 결과는 아직 학교 공식 학사일정에 반영되지 않았습니다.
++          </p>
++        </section>
++      ) : null}
++    </div>
++  );
++}
++
++function getDefaultAcademicYear(): number {
++  const today = new Date();
++  return today.getMonth() < 2 ? today.getFullYear() - 1 : today.getFullYear();
++}
++
++function formatGrades(grades: readonly number[]): string {
++  return grades.length > 0 ? `${grades.join(", ")}학년` : "전체/미지정";
++}
++
++function formatDateRange(startDate: string, endDate?: string): string {
++  return endDate && endDate !== startDate ? `${startDate} ~ ${endDate}` : startDate;
++}
++
++function formatPages(pages: readonly number[]): string {
++  return pages.length > 0 ? pages.join(", ") : "-";
++}
+diff --git a/src/modules/ai-review/README.md b/src/modules/ai-review/README.md
+index a3fcad9..520b868 100644
+--- a/src/modules/ai-review/README.md
++++ b/src/modules/ai-review/README.md
+@@ -1,16 +1,18 @@
+ # AI Review module
+ 
+-AI는 의미 기반 검토만 담당합니다.
++AI가 문서의 의미를 해석하거나 구조화해야 하는 기능에서 사용하는 공통 AI 경계입니다.
+ 
+ 허용 예:
+ - 전년도 문구
+ - 타 교과 문구
+ - 모호한 세부평가기준
+ - 성취기준과 평가내용의 의미적 연결 검토 제안
++- 업로드한 학교 문서에서 검토 대상 정보를 구조화하여 제안
+ 
+ 금지:
+ - 반영비율 계산
+ - 역할 판정
+-- 공식 데이터 자동 수정
++- AI 응답을 검증 없이 공식 데이터로 확정
+ 
+-AI 응답은 향후 Zod schema 검증 후 사용합니다.
++Application 계층은 `AiJsonClient` 인터페이스에만 의존합니다. Ollama 같은 공급자별 HTTP 구현은 infrastructure에 둡니다.
++AI 응답은 업무 모듈의 Zod schema와 업무 규칙으로 검증한 뒤, 사용자가 확인할 수 있는 제안 데이터로 사용합니다.
+diff --git a/src/modules/ai-review/application/ai-json-client.ts b/src/modules/ai-review/application/ai-json-client.ts
+new file mode 100644
+index 0000000..06a4513
+--- /dev/null
++++ b/src/modules/ai-review/application/ai-json-client.ts
+@@ -0,0 +1,13 @@
++export type AiJsonMessage = {
++  role: "system" | "user";
++  content: string;
++};
++
++export type AiJsonRequest = {
++  messages: readonly AiJsonMessage[];
++  temperature?: number;
++};
++
++export interface AiJsonClient {
++  generateJson(request: AiJsonRequest): Promise<unknown>;
++}
+diff --git a/src/modules/ai-review/index.ts b/src/modules/ai-review/index.ts
+new file mode 100644
+index 0000000..37ea922
+--- /dev/null
++++ b/src/modules/ai-review/index.ts
+@@ -0,0 +1 @@
++export * from "./application/ai-json-client";
+diff --git a/src/modules/ai-review/infrastructure/ollama-json-client.ts b/src/modules/ai-review/infrastructure/ollama-json-client.ts
+new file mode 100644
+index 0000000..2b2db0d
+--- /dev/null
++++ b/src/modules/ai-review/infrastructure/ollama-json-client.ts
+@@ -0,0 +1,132 @@
++import type { AiJsonClient, AiJsonRequest } from "../application/ai-json-client";
++
++type OllamaJsonClientOptions = {
++  baseUrl: string;
++  model: string;
++  apiKey?: string;
++  timeoutMs?: number;
++  fetchImplementation?: typeof fetch;
++};
++
++type OllamaChatResponse = {
++  message?: {
++    content?: unknown;
++  };
++  error?: unknown;
++};
++
++const DEFAULT_TIMEOUT_MS = 60_000;
++
++export class OllamaAiError extends Error {
++  constructor(message: string) {
++    super(message);
++    this.name = "OllamaAiError";
++  }
++}
++
++export class OllamaJsonClient implements AiJsonClient {
++  private readonly baseUrl: string;
++  private readonly model: string;
++  private readonly apiKey?: string;
++  private readonly timeoutMs: number;
++  private readonly fetchImplementation: typeof fetch;
++
++  constructor(options: OllamaJsonClientOptions) {
++    this.baseUrl = options.baseUrl.replace(/\/+$/, "");
++    this.model = options.model;
++    this.apiKey = options.apiKey;
++    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
++    this.fetchImplementation = options.fetchImplementation ?? fetch;
++  }
++
++  async generateJson(request: AiJsonRequest): Promise<unknown> {
++    const controller = new AbortController();
++    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
++
++    try {
++      const response = await this.fetchImplementation(`${this.baseUrl}/chat`, {
++        method: "POST",
++        headers: {
++          "Content-Type": "application/json",
++          ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
++        },
++        body: JSON.stringify({
++          model: this.model,
++          messages: request.messages,
++          stream: false,
++          options: {
++            temperature: request.temperature ?? 0,
++          },
++        }),
++        signal: controller.signal,
++      });
++
++      const responseBody = (await response.json().catch(() => null)) as OllamaChatResponse | null;
++
++      if (!response.ok) {
++        const detail = typeof responseBody?.error === "string" ? `: ${responseBody.error}` : "";
++        throw new OllamaAiError(`Ollama 요청에 실패했습니다 (${response.status})${detail}`);
++      }
++
++      const content = responseBody?.message?.content;
++      if (typeof content !== "string" || content.trim().length === 0) {
++        throw new OllamaAiError("Ollama 응답에 message.content가 없습니다.");
++      }
++
++      return parseJsonContent(content);
++    } catch (error) {
++      if (error instanceof OllamaAiError) {
++        throw error;
++      }
++
++      if (error instanceof Error && error.name === "AbortError") {
++        throw new OllamaAiError("Ollama 응답 시간이 초과되었습니다.");
++      }
++
++      throw new OllamaAiError(error instanceof Error ? error.message : "Ollama 요청 중 오류가 발생했습니다.");
++    } finally {
++      clearTimeout(timeout);
++    }
++  }
++}
++
++function parseJsonContent(content: string): unknown {
++  const trimmed = content.trim();
++  const withoutFence = trimmed
++    .replace(/^```(?:json)?\s*/i, "")
++    .replace(/\s*```$/, "")
++    .trim();
++
++  try {
++    return JSON.parse(withoutFence) as unknown;
++  } catch {
++    const objectStart = withoutFence.indexOf("{");
++    const objectEnd = withoutFence.lastIndexOf("}");
++
++    if (objectStart >= 0 && objectEnd > objectStart) {
++      try {
++        return JSON.parse(withoutFence.slice(objectStart, objectEnd + 1)) as unknown;
++      } catch {
++        // Fall through to the stable error below.
++      }
++    }
++  }
++
++  throw new OllamaAiError("Ollama가 유효한 JSON을 반환하지 않았습니다.");
++}
++
++export function createOllamaJsonClientFromEnv(): OllamaJsonClient {
++  const model = process.env.OLLAMA_MODEL?.trim();
++  if (!model) {
++    throw new OllamaAiError("서버 환경변수 OLLAMA_MODEL이 설정되지 않았습니다.");
++  }
++
++  const baseUrl = process.env.OLLAMA_BASE_URL?.trim() || "https://ollama.com/api";
++  const apiKey = process.env.OLLAMA_API_KEY?.trim();
++
++  return new OllamaJsonClient({
++    baseUrl,
++    model,
++    apiKey,
++  });
++}
+diff --git a/src/modules/ai-review/server.ts b/src/modules/ai-review/server.ts
+new file mode 100644
+index 0000000..bfc9b2f
+--- /dev/null
++++ b/src/modules/ai-review/server.ts
+@@ -0,0 +1,2 @@
++export * from "./application/ai-json-client";
++export * from "./infrastructure/ollama-json-client";
+diff --git a/package-lock.json b/package-lock.json
+index a8f7b68..0000000 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -6,13 +6,17 @@
+   "packages": {
+     "": {
+       "name": "evalflow",
+       "version": "0.1.0",
++      "engines": {
++        "node": ">=22"
++      },
+       "dependencies": {
+         "firebase": "12.18.0",
+         "firebase-admin": "14.3.0",
+         "next": "16.3.3",
+         "react": "19.2.0",
+         "react-dom": "19.2.0",
++        "unpdf": "1.8.1",
+         "zod": "4.5.4"
+       },
+       "devDependencies": {
+@@ -10137,7 +10141,22 @@
+       "funding": {
+         "url": "https://github.com/sponsors/sindresorhus"
+       }
+     },
++    "node_modules/unpdf": {
++      "version": "1.8.1",
++      "resolved": "https://registry.npmjs.org/unpdf/-/unpdf-1.8.1.tgz",
++      "integrity": "sha512-xkURhy2SoGpOIH0a1gLHNkASPIQYonadDJs2AQwPEfUakafeD9EA1WTWWsaR++gfTCXJpV27W7tU1nXuk82UKQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=22"
++      },
++      "peerDependencies": {
++        "@napi-rs/canvas": "^0.1.69 || ^1.0.0"
++      },
++      "peerDependenciesMeta": {
++        "@napi-rs/canvas": { "optional": true }
++      }
++    },
+     "node_modules/zod": {
+       "version": "4.5.4",
+       "resolved": "https://registry.npmjs.org/zod/-/zod-4.5.4.tgz",

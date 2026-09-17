@@ -382,3 +382,91 @@ textarea {
     padding: 16px;
   }
 }
+
+.evaluation-admin-menu a {
+  display: block;
+}
+
+.calendar-import-form {
+  display: grid;
+  grid-template-columns: 150px minmax(280px, 1fr) auto;
+  align-items: end;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.calendar-import-form .secondary-button {
+  margin-top: 0;
+}
+
+.calendar-import-note,
+.calendar-review-note {
+  margin-bottom: 0;
+}
+
+.calendar-result-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 14px;
+}
+
+.calendar-result-header p {
+  margin: 4px 0 0;
+}
+
+.calendar-warning-box {
+  margin-bottom: 14px;
+}
+
+.calendar-warning-box ul {
+  margin-bottom: 0;
+}
+
+.calendar-table-scroll {
+  overflow-x: auto;
+}
+
+.calendar-import-table {
+  min-width: 980px;
+}
+
+.calendar-import-table th:nth-child(1) {
+  width: 68px;
+}
+
+.calendar-import-table th:nth-child(2) {
+  width: 90px;
+}
+
+.calendar-import-table th:nth-child(4) {
+  width: 100px;
+}
+
+.calendar-import-table th:nth-child(5) {
+  width: 190px;
+}
+
+.calendar-source-cell {
+  min-width: 220px;
+  font-size: 14px;
+}
+
+.calendar-issue-list {
+  min-width: 180px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--danger);
+  font-size: 14px;
+}
+
+@media (max-width: 800px) {
+  .calendar-import-form {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-result-header {
+    display: block;
+  }
+}

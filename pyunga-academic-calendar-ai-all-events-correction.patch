@@ -1,0 +1,248 @@
+diff --git a/src/app/admin/evaluation/academic-calendar/page.tsx b/src/app/admin/evaluation/academic-calendar/page.tsx
+index a588f62..717ce85 100644
+--- a/src/app/admin/evaluation/academic-calendar/page.tsx
++++ b/src/app/admin/evaluation/academic-calendar/page.tsx
+@@ -5,7 +5,7 @@ export default function AcademicCalendarPage() {
+     <main>
+       <h1 className="page-title">학사일정 관리</h1>
+       <p className="page-intro muted">
+-        교육계획서의 학사일정을 불러와 주요 일정과 중간·기말고사 일정을 확인합니다.
++        교육계획서의 학사일정을 불러와 학교 일정과 중간·기말고사를 빠짐없이 구조화하여 확인합니다.
+       </p>
+       <AcademicCalendarImportWorkspace />
+     </main>
+diff --git a/src/modules/academic-calendar/application/academic-calendar-import.test.ts b/src/modules/academic-calendar/application/academic-calendar-import.test.ts
+index 72d14ba..e7c1c41 100644
+--- a/src/modules/academic-calendar/application/academic-calendar-import.test.ts
++++ b/src/modules/academic-calendar/application/academic-calendar-import.test.ts
+@@ -1,29 +1,31 @@
+ import { describe, expect, it } from "vitest";
+ 
+-import type { AiJsonClient } from "../../ai-review";
++import type { AiJsonClient, AiJsonRequest } from "../../ai-review";
+ import {
+   importAcademicCalendarFromText,
+   selectAcademicCalendarSourceText,
+ } from "./academic-calendar-import";
+ 
+ describe("academic calendar import", () => {
+-  it("keeps only calendar-related PDF pages and their neighbors", () => {
++  it("keeps calendar pages that are identified by timetable headers and activities", () => {
+     const selection = selectAcademicCalendarSourceText([
+       { pageNumber: 1, text: "학교 교육 목표" },
+       { pageNumber: 2, text: "2026학년도 학사일정 운영 계획" },
+-      { pageNumber: 3, text: "중간고사 2,3학년" },
++      { pageNumber: 3, text: "월 주 월 화 수 목 금 수업일수 주요교육활동 학급회 동아리" },
+       { pageNumber: 4, text: "예산 운영 계획" },
+       { pageNumber: 5, text: "교직원 연수" },
+     ]);
+ 
+     expect(selection.pageNumbers).toEqual([1, 2, 3, 4]);
+-    expect(selection.text).toContain("중간고사 2,3학년");
++    expect(selection.text).toContain("주요교육활동 학급회 동아리");
+     expect(selection.text).not.toContain("교직원 연수");
+   });
+ 
+-  it("normalizes and deduplicates AI suggestions without treating them as final data", async () => {
++  it("keeps small and recurring school activities instead of filtering them out", async () => {
++    let request: AiJsonRequest | undefined;
+     const aiClient: AiJsonClient = {
+-      async generateJson() {
++      async generateJson(receivedRequest) {
++        request = receivedRequest;
+         return {
+           documentTitle: "2026학년 학사일정 운영 계획(안)",
+           events: [
+@@ -38,14 +40,34 @@ describe("academic calendar import", () => {
+               sourceText: "29일(수), 중간고사(2,3년) 30일(목), 중간고사(2,3년)",
+             },
+             {
+-              title: "중간고사(2,3년)",
+-              type: "written_exam",
++              title: "학급회",
++              type: "school_event",
+               semester: 1,
+-              startDate: "2026-04-29",
+-              endDate: "2026-04-30",
+-              targetGrades: [2, 3],
+-              writtenExamKind: "midterm",
+-              sourceText: "29일(수), 중간고사(2,3년)",
++              startDate: "2026-04-16",
++              endDate: null,
++              targetGrades: [],
++              writtenExamKind: null,
++              sourceText: "16일(목), 학급회(7h)",
++            },
++            {
++              title: "동아리 활동",
++              type: "school_event",
++              semester: 1,
++              startDate: "2026-04-10",
++              endDate: null,
++              targetGrades: [],
++              writtenExamKind: null,
++              sourceText: "10일(금), 동아리 활동 - 수업(4), 동(2)",
++            },
++            {
++              title: "학교폭력예방교육",
++              type: "school_event",
++              semester: 1,
++              startDate: "2026-03-04",
++              endDate: null,
++              targetGrades: [],
++              writtenExamKind: null,
++              sourceText: "4일(수), 학교폭력예방교육(6h)",
+             },
+           ],
+           warnings: [],
+@@ -55,18 +77,70 @@ describe("academic calendar import", () => {
+ 
+     const result = await importAcademicCalendarFromText({
+       academicYear: 2026,
+-      sourceText: "2026학년도 1학기 학사일정 중간고사 2,3학년 4월 29일과 30일",
++      sourceText:
++        "2026학년도 1학기 학사일정 중간고사 2,3학년 4월 29일과 30일, 학급회, 동아리 활동, 학교폭력예방교육",
+       aiClient,
+     });
+ 
+-    expect(result.events).toHaveLength(1);
+-    expect(result.events[0]).toMatchObject({
+-      type: "written_exam",
+-      writtenExamKind: "midterm",
+-      targetGrades: [2, 3],
+-      startDate: "2026-04-29",
+-      endDate: "2026-04-30",
+-      issues: [],
++    expect(result.events.map((event) => event.title)).toEqual([
++      "학교폭력예방교육",
++      "동아리 활동",
++      "학급회",
++      "중간고사(2,3년)",
++    ]);
++    expect(request?.messages[0]?.content).toContain("중요도를 판단해서 일정을 생략하지 마세요");
++    expect(request?.messages[0]?.content).toContain("학급회, 동아리");
++  });
++
++  it("deduplicates duplicate source mentions while preserving repeated events on different dates", async () => {
++    const aiClient: AiJsonClient = {
++      async generateJson() {
++        return {
++          documentTitle: "2026학년 학사일정 운영 계획(안)",
++          events: [
++            {
++              title: "학급회",
++              type: "school_event",
++              semester: 1,
++              startDate: "2026-04-16",
++              endDate: null,
++              targetGrades: [],
++              writtenExamKind: null,
++              sourceText: "16일(목), 학급회(7h)",
++            },
++            {
++              title: "학급회",
++              type: "school_event",
++              semester: 1,
++              startDate: "2026-04-16",
++              endDate: null,
++              targetGrades: [],
++              writtenExamKind: null,
++              sourceText: "학급회(7h)",
++            },
++            {
++              title: "학급회",
++              type: "school_event",
++              semester: 1,
++              startDate: "2026-05-21",
++              endDate: null,
++              targetGrades: [],
++              writtenExamKind: null,
++              sourceText: "21일(목), 학급회",
++            },
++          ],
++          warnings: [],
++        };
++      },
++    };
++
++    const result = await importAcademicCalendarFromText({
++      academicYear: 2026,
++      sourceText: "2026학년도 학사일정 4월 16일 학급회, 5월 21일 학급회",
++      aiClient,
+     });
++
++    expect(result.events).toHaveLength(2);
++    expect(result.events.map((event) => event.startDate)).toEqual(["2026-04-16", "2026-05-21"]);
+   });
+ });
+diff --git a/src/modules/academic-calendar/application/academic-calendar-import.ts b/src/modules/academic-calendar/application/academic-calendar-import.ts
+index a4ad5c5..ad34e5c 100644
+--- a/src/modules/academic-calendar/application/academic-calendar-import.ts
++++ b/src/modules/academic-calendar/application/academic-calendar-import.ts
+@@ -28,7 +28,7 @@ const aiEventSchema = z.object({
+ 
+ const aiImportResponseSchema = z.object({
+   documentTitle: z.string().trim().min(1).max(200).nullable().optional(),
+-  events: z.array(aiEventSchema).max(150),
++  events: z.array(aiEventSchema).max(500),
+   warnings: z.array(z.string().trim().min(1).max(300)).max(30).default([]),
+ });
+ 
+@@ -74,6 +74,12 @@ const CALENDAR_PAGE_KEYWORDS = [
+   /방학/,
+   /개교기념일/,
+   /재량\s*휴업/,
++  /주요\s*교육\s*활동/,
++  /수업\s*일수/,
++  /학급회/,
++  /동아리/,
++  /영어\s*듣기/,
++  /예방\s*교육/,
+ ] as const;
+ 
+ const MAX_SOURCE_PAGES = 20;
+@@ -166,15 +172,17 @@ export async function importAcademicCalendarFromText(params: {
+ 
+ function buildSystemPrompt(): string {
+   return [
+-    "당신은 대한민국 중학교의 교육계획서/학사일정 문서에서 평가계획 작성에 필요한 주요 학사일정을 구조화하는 도구입니다.",
++    "당신은 대한민국 중학교의 교육계획서/학사일정 문서에 공식적으로 기록된 일정을 구조화하는 도구입니다.",
++    "중요도를 판단해서 일정을 생략하지 마세요. 학사일정 표 또는 주요교육활동에 일정으로 명시된 항목은 모두 추출하는 것이 원칙입니다.",
++    "학급회, 동아리, 각종 예방교육, 영어듣기평가, 표준화검사, 학생회·학급 임원 선거, 학부모 행사, 체험학습, 진로활동, 문화예술행사, 체육행사, 봉사활동 등 반복되거나 규모가 작은 교육활동도 제외하지 마세요.",
++    "공휴일, 대체공휴일, 재량휴업일, 개교기념일처럼 수업 여부에 영향을 주는 날도 문서에 표시되어 있으면 추출하세요.",
+     "원문에 명시된 사실만 추출하고 날짜, 학년, 행사 종류를 추정하거나 만들어내지 마세요.",
+     "반드시 JSON 객체 하나만 반환하세요. 마크다운 코드블록이나 설명 문장을 붙이지 마세요.",
+     "중간고사와 기말고사는 반드시 written_exam으로 분류하고 대상 학년을 targetGrades에 넣으세요.",
+-    "같은 시험이 연속된 여러 날짜에 진행되면 하나의 일정으로 합쳐 startDate와 endDate를 사용하세요.",
+-    "시업식, 입학식, 종업식, 졸업식, 개교기념일, 체험학습처럼 수업/평가 일정에 영향을 주는 큰 행사는 school_event로 분류하세요.",
+-    "방학 기간은 vacation으로 분류하세요. 공휴일·재량휴업일처럼 평가 일정에 영향을 줄 수 있는 휴업일은 other로 분류할 수 있습니다.",
+-    "학급회, 동아리, 예방교육, 영어듣기, 소규모 체험 프로그램 등 반복적 세부 교육활동은 주요 학사일정에서 제외하세요.",
+-    "sourceText에는 해당 판단의 근거가 되는 원문 일부를 짧게 넣으세요.",
++    "같은 시험이나 같은 행사가 연속된 여러 날짜에 진행되면 의미상 하나의 일정인 경우 startDate와 endDate로 합치세요.",
++    "시험이 아닌 교육활동과 학교 행사는 school_event로 분류하세요. 방학 기간은 vacation으로 분류하세요. 공휴일·휴업일 등 나머지 일정은 other로 분류할 수 있습니다.",
++    "같은 일정이 날짜 칸과 주요교육활동 요약에 중복 기재된 경우 한 번만 반환하되, 서로 다른 날짜의 반복 일정은 각각 별도 일정으로 남기세요.",
++    "sourceText에는 일정명, 날짜, 대상 학년, 시간 정보 등 해당 일정의 근거가 보이도록 원문 일부를 짧게 넣으세요.",
+   ].join("\n");
+ }
+ 
+@@ -188,6 +196,7 @@ function buildUserPrompt(academicYear: number, sourceText: string): string {
+     "응답 JSON 구조:",
+     '{"documentTitle":"문서 제목 또는 null","events":[{"title":"일정명","type":"written_exam|school_event|vacation|other","semester":1,"startDate":"YYYY-MM-DD","endDate":"YYYY-MM-DD 또는 null","targetGrades":[1,2,3],"writtenExamKind":"midterm|final|other 또는 null","sourceText":"근거 원문"}],"warnings":["원문이 모호해 사람이 확인해야 할 사항"]}',
+     "written_exam이 아닌 일정은 writtenExamKind를 null로 두세요. 대상 학년이 명시되지 않은 일정은 targetGrades를 빈 배열로 두세요.",
++    "일정의 중요도를 임의로 평가하지 말고, 문서에 학사일정으로 기재된 모든 항목을 events에 포함하세요.",
+     "문서:",
+     sourceText,
+   ].join("\n\n");
+diff --git a/src/modules/academic-calendar/ui/AcademicCalendarImportWorkspace.tsx b/src/modules/academic-calendar/ui/AcademicCalendarImportWorkspace.tsx
+index 185f1cb..7cbddad 100644
+--- a/src/modules/academic-calendar/ui/AcademicCalendarImportWorkspace.tsx
++++ b/src/modules/academic-calendar/ui/AcademicCalendarImportWorkspace.tsx
+@@ -78,7 +78,7 @@ export function AcademicCalendarImportWorkspace() {
+       <section className="panel">
+         <h2 className="subsection-title">교육계획서에서 학사일정 가져오기</h2>
+         <p className="muted small-copy">
+-          PDF의 학사일정 관련 페이지를 찾아 AI로 주요 일정과 정기고사를 구조화합니다. 분석 결과는 바로 저장되지 않으며,
++          PDF의 학사일정 관련 페이지를 찾아 AI로 문서에 기록된 모든 일정과 정기고사를 구조화합니다. 분석 결과는 바로 저장되지 않으며,
+           먼저 아래 표에서 확인합니다.
+         </p>
+ 
