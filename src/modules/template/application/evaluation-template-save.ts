@@ -11,6 +11,7 @@ const sectionSchema = z.object({
   id: z.string().trim().min(1).max(100),
   title: z.string().trim().min(1).max(120),
   level: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  childrenMode: z.enum(["fixed", "repeatable"]).optional(),
   sourcePage: z.number().int().min(1).max(60).optional(),
 });
 
@@ -34,6 +35,7 @@ export function parseEvaluationTemplateSaveInput(value: unknown): EvaluationTemp
     id: section.id,
     title: section.title,
     level: section.level,
+    childrenMode: section.childrenMode,
     ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
   }));
 

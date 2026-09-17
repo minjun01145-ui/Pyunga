@@ -1,4 +1,5 @@
 export type EvaluationTemplateSectionLevel = 1 | 2 | 3;
+export type EvaluationTemplateChildrenMode = "fixed" | "repeatable";
 
 export type EvaluationTemplateSection = {
   id: string;
@@ -6,6 +7,7 @@ export type EvaluationTemplateSection = {
   level: EvaluationTemplateSectionLevel;
   order: number;
   parentId?: string;
+  childrenMode: EvaluationTemplateChildrenMode;
   sourcePage?: number;
 };
 
@@ -22,6 +24,7 @@ export type EvaluationTemplate = {
 };
 
 export type EvaluationTemplateSectionInput = Pick<EvaluationTemplateSection, "id" | "title" | "level"> & {
+  childrenMode?: EvaluationTemplateChildrenMode;
   sourcePage?: number;
 };
 
@@ -60,6 +63,7 @@ export function normalizeEvaluationTemplateSections(
       title: section.title.trim(),
       level,
       order: index,
+      childrenMode: normalizeChildrenMode(level, section.childrenMode),
       ...(level > 1
         ? { parentId: latestParentByLevel.get((level - 1) as EvaluationTemplateSectionLevel) }
         : {}),
@@ -102,6 +106,10 @@ export function getEvaluationTemplateIssues(template: EvaluationTemplate): strin
       issues.push(`${section.order + 1}번째 항목 제목은 120자 이하로 입력해 주세요.`);
     }
 
+    if (section.level === 3 && section.childrenMode !== "fixed") {
+      issues.push(`${section.order + 1}번째 소분류에는 하위 항목 방식을 설정할 수 없습니다.`);
+    }
+
     if (section.sourcePage !== undefined && (!Number.isInteger(section.sourcePage) || section.sourcePage < 1)) {
       issues.push(`${section.order + 1}번째 항목의 원문 페이지 정보가 올바르지 않습니다.`);
     }
@@ -114,10 +122,21 @@ export function getEvaluationTemplateIssues(template: EvaluationTemplate): strin
     if (
       current.level !== expected.level ||
       current.order !== expected.order ||
-      current.parentId !== expected.parentId
+      current.parentId !== expected.parentId ||
+      current.childrenMode !== expected.childrenMode
     ) {
       issues.push("항목 단계 또는 순서가 올바르지 않습니다.");
       break;
+    }
+  }
+
+  for (let index = 0; index < template.sections.length; index += 1) {
+    const section = template.sections[index];
+    if (section.childrenMode !== "repeatable") continue;
+
+    const blockEnd = findSectionBlockEnd(template.sections, index);
+    if (blockEnd > index + 1) {
+      issues.push(`'${section.title}'은 교과별 반복 항목 영역이므로 공통 하위 항목을 함께 저장할 수 없습니다.`);
     }
   }
 
@@ -218,6 +237,37 @@ export function removeEvaluationTemplateSection(
   );
 }
 
+export function setEvaluationTemplateSectionChildrenMode(
+  sections: readonly EvaluationTemplateSection[],
+  index: number,
+  childrenMode: EvaluationTemplateChildrenMode,
+): EvaluationTemplateSection[] {
+  if (index < 0 || index >= sections.length) return [...sections];
+
+  const current = sections[index];
+  if (current.level === 3) return [...sections];
+
+  const inputs = sections.map(toSectionInput);
+  inputs[index] = { ...inputs[index], childrenMode };
+
+  if (childrenMode === "fixed") {
+    return normalizeEvaluationTemplateSections(inputs);
+  }
+
+  const blockEnd = findSectionBlockEnd(sections, index);
+  return normalizeEvaluationTemplateSections([
+    ...inputs.slice(0, index + 1),
+    ...inputs.slice(blockEnd),
+  ]);
+}
+
+export function getEvaluationTemplateDirectChildren(
+  sections: readonly EvaluationTemplateSection[],
+  sectionId: string,
+): EvaluationTemplateSection[] {
+  return sections.filter((section) => section.parentId === sectionId);
+}
+
 function findSectionBlockEnd(sections: readonly EvaluationTemplateSection[], index: number): number {
   const level = sections[index].level;
   let end = index + 1;
@@ -232,6 +282,7 @@ function toSectionInput(section: EvaluationTemplateSection): EvaluationTemplateS
     id: section.id,
     title: section.title,
     level: section.level,
+    childrenMode: section.childrenMode,
     ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
   };
 }
@@ -239,4 +290,12 @@ function toSectionInput(section: EvaluationTemplateSection): EvaluationTemplateS
 function normalizeLevel(level: EvaluationTemplateSectionLevel): EvaluationTemplateSectionLevel {
   if (level === 2 || level === 3) return level;
   return 1;
+}
+
+function normalizeChildrenMode(
+  level: EvaluationTemplateSectionLevel,
+  childrenMode: EvaluationTemplateChildrenMode | undefined,
+): EvaluationTemplateChildrenMode {
+  if (level === 3) return "fixed";
+  return childrenMode === "repeatable" ? "repeatable" : "fixed";
 }
