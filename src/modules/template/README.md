@@ -5,6 +5,7 @@
 ## 책임
 
 - 문서 Section 목록/순서/제목
+- 전년도 평가계획 PDF에서 Section 구조 초안 생성
 - 교수·학습표 Column Schema
 - Section별 portrait/landscape
 - page break / 반복 헤더 등 출력 정책
@@ -14,9 +15,10 @@
 
 - Domain 데이터를 변경하지 않는다.
 - 학교별 차이를 source code `if/else`로 만들지 않는다.
-- AI가 생성한 임의 React/JavaScript 코드를 실행하지 않는다.
+- AI가 생성한 임의 React/JavaScript를 실행하지 않는다.
 - AI는 제한된 Template Schema 초안만 제안할 수 있다.
 - Template 설정은 평가계 담당자가 검토/수정/확정한다.
+- PDF 원문에서 번호가 붙은 제목 후보를 먼저 수집하고, AI는 문서 문맥을 보고 실제 Section 제목과 단계를 제한된 Schema로 분류한다.
 - 사용 사례가 없는 범용 DSL을 미리 만들지 않는다.
 
 상세 설계는 `docs/13_EVALUATION_TEMPLATE_DESIGN.md`를 따른다.
