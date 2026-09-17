@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
 
 type ChatMessage = {
   id: string;
@@ -42,7 +43,7 @@ export function AiTestWorkspace() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/admin/evaluation/ai-test", {
+      const response = await authenticatedFetch("/api/admin/evaluation/ai-test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

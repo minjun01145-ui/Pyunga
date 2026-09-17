@@ -1,4 +1,5 @@
 import { getApps, initializeApp, type FirebaseApp } from "firebase/app";
+import { getAuth, type Auth } from "firebase/auth";
 
 function requiredPublicEnv(name: string, value: string | undefined): string {
   if (!value) {
@@ -24,4 +25,8 @@ export function getFirebaseClientApp(): FirebaseApp {
     ),
     appId: requiredPublicEnv("NEXT_PUBLIC_FIREBASE_APP_ID", process.env.NEXT_PUBLIC_FIREBASE_APP_ID),
   });
+}
+
+export function getFirebaseClientAuth(): Auth {
+  return getAuth(getFirebaseClientApp());
 }

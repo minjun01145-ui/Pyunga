@@ -11,6 +11,7 @@ import { PerformanceValidationPanel } from "./PerformanceValidationPanel";
 import { SectionedScoringEditor } from "./SectionedScoringEditor";
 import { WholeScoringEditor } from "./WholeScoringEditor";
 import { createPrototypeAssessment } from "./prototype/create-prototype-assessment";
+import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
 
 type ScoringMode = "sections" | "whole";
 
@@ -21,6 +22,8 @@ function createId(): string {
 export function PerformanceAssessmentEditor() {
   const [assessment, setAssessment] = useState<PerformanceAssessment>(createPrototypeAssessment);
   const [showRawData, setShowRawData] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const scoringMode: ScoringMode = assessment.sections.length > 0 ? "sections" : "whole";
   const validationErrors = useMemo(() => validatePerformanceAssessment(assessment), [assessment]);
@@ -51,6 +54,33 @@ export function PerformanceAssessmentEditor() {
       sections: [],
       wholeAssessmentScoringModel: createInitialScoringModel("threshold_table", current.maxScore, createId),
     }));
+  }
+
+  async function saveDraft(): Promise<void> {
+    if (validationErrors.length > 0) {
+      setSaveMessage("검증 오류를 먼저 확인해 주세요.");
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveMessage(null);
+    try {
+      const response = await authenticatedFetch(
+        `/api/teacher/performance-assessment-drafts/${encodeURIComponent(assessment.id)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(assessment),
+        },
+      );
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(body.error ?? "초안 저장에 실패했습니다.");
+      setSaveMessage("수행평가 초안을 저장했습니다.");
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : "초안 저장에 실패했습니다.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -92,6 +122,12 @@ export function PerformanceAssessmentEditor() {
         showRawData={showRawData}
         onToggleRawData={() => setShowRawData((current) => !current)}
       />
+      <section className="panel save-actions">
+        <button className="secondary-button" type="button" disabled={isSaving} onClick={saveDraft}>
+          {isSaving ? "저장 중" : "초안 저장"}
+        </button>
+        {saveMessage ? <p className="small-copy">{saveMessage}</p> : null}
+      </section>
     </div>
   );
 }

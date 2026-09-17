@@ -82,6 +82,22 @@ main {
   gap: 16px;
 }
 
+.app-navigation-auth {
+  margin-left: auto;
+}
+
+.auth-sign-out {
+  color: var(--accent);
+}
+
+.login-page {
+  max-width: 520px;
+}
+
+.login-form {
+  margin-top: 20px;
+}
+
 .evaluation-admin-layout {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
@@ -402,6 +418,18 @@ textarea {
 .calendar-import-note,
 .calendar-review-note {
   margin-bottom: 0;
+}
+
+.save-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.save-actions .secondary-button,
+.save-actions p {
+  margin: 0;
 }
 
 .calendar-result-header {

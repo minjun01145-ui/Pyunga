@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AuthNavigation } from "@/modules/auth/ui/AuthNavigation";
 
 const navigationItems = [
   { href: "/", label: "첫 화면" },
@@ -19,6 +20,9 @@ export function AppNavigation() {
             {item.label}
           </Link>
         ))}
+      </div>
+      <div className="app-navigation-auth">
+        <AuthNavigation />
       </div>
     </nav>
   );

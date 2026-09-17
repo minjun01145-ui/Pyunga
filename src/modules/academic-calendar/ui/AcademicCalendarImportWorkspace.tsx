@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { AiCallMetricsPanel, type AiCallMetrics } from "../../ai-review";
 import type { AcademicCalendarImportCandidate } from "../application/academic-calendar-import";
+import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
 
 type ImportApiResponse = {
   documentTitle?: string;
@@ -35,6 +36,8 @@ export function AcademicCalendarImportWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading) {
@@ -72,7 +75,7 @@ export function AcademicCalendarImportWorkspace() {
     formData.set("academicYear", String(academicYear));
 
     try {
-      const response = await fetch("/api/admin/evaluation/academic-calendar/import", {
+      const response = await authenticatedFetch("/api/admin/evaluation/academic-calendar/import", {
         method: "POST",
         body: formData,
       });
@@ -87,6 +90,30 @@ export function AcademicCalendarImportWorkspace() {
       setError(requestError instanceof Error ? requestError.message : "학사일정 분석에 실패했습니다.");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleSave() {
+    if (!result) return;
+    setIsSaving(true);
+    setError(null);
+    setSaveMessage(null);
+
+    try {
+      const response = await authenticatedFetch("/api/admin/evaluation/academic-calendar", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ academicYear, events: result.events }),
+      });
+      const body = (await response.json()) as { savedCount?: number; error?: string };
+      if (!response.ok) {
+        throw new Error(body.error ?? "학사일정 저장에 실패했습니다.");
+      }
+      setSaveMessage(`${body.savedCount ?? result.events.length}개 일정을 저장했습니다.`);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "학사일정 저장에 실패했습니다.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -204,6 +231,12 @@ export function AcademicCalendarImportWorkspace() {
               이 단계는 AI가 제안한 일정을 검토하는 화면입니다. 분석 결과는 아직 학교 공식
               학사일정에 반영되지 않았습니다.
             </p>
+            <div className="save-actions">
+              <button className="secondary-button" type="button" disabled={isSaving} onClick={handleSave}>
+                {isSaving ? "저장 중" : "검토한 일정 저장"}
+              </button>
+              {saveMessage ? <p className="validation-success">{saveMessage}</p> : null}
+            </div>
           </section>
           <AiCallMetricsPanel metrics={result.aiCall} />
         </>

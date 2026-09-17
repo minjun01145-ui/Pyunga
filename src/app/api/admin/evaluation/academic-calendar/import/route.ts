@@ -7,6 +7,7 @@ import {
   selectAcademicCalendarSourceText,
 } from "@/modules/academic-calendar/server";
 import { createOllamaJsonClientFromEnv, OllamaAiError } from "@/modules/ai-review/server";
+import { RequestAuthenticationError, requireAuthenticatedProfile } from "@/modules/auth/server";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,7 @@ const ACADEMIC_CALENDAR_AI_TIMEOUT_MS = 240_000;
 
 export async function POST(request: Request) {
   try {
+    await requireAuthenticatedProfile(request, ["school_admin", "evaluation_admin"]);
     const formData = await request.formData();
     const file = formData.get("file");
     const academicYear = Number(formData.get("academicYear"));
@@ -47,6 +49,9 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof RequestAuthenticationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     if (error instanceof AcademicCalendarImportError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }

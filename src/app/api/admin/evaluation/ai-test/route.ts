@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createOllamaTextClientFromEnv, OllamaAiError } from "@/modules/ai-review/server";
+import { RequestAuthenticationError, requireAuthenticatedProfile } from "@/modules/auth/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +31,15 @@ type RateLimitEntry = {
 const requestCounts = new Map<string, RateLimitEntry>();
 
 export async function POST(request: Request) {
+  try {
+    await requireAuthenticatedProfile(request, ["school_admin", "evaluation_admin"]);
+  } catch (error) {
+    if (error instanceof RequestAuthenticationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    throw error;
+  }
+
   const rateLimit = consumeRequest(getClientKey(request));
   if (!rateLimit.allowed) {
     return NextResponse.json(

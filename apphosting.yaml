@@ -23,6 +23,36 @@ runConfig:
   # - variable: MY_SECRET
   #   secret: mySecretRef
 env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyDzbfE7NM0UeDrzQYtgAPgeUyv_iU8g2zs
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: inaday-74f68.firebaseapp.com
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: inaday-74f68
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: inaday-74f68.firebasestorage.app
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "817672693976"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:817672693976:web:4c6c72ace85c0c78598fad
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: OLLAMA_API_KEY
     secret: OLLAMA_API_KEY
   - variable: OLLAMA_BASE_URL
