@@ -62,7 +62,7 @@ export async function extractPdfTextPages(file: File): Promise<ExtractedPdfDocum
       pages,
     };
   } finally {
-    await pdf.destroy();
+    await pdf.loadingTask.destroy();
   }
 }
 

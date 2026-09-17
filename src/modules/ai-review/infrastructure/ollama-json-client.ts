@@ -123,10 +123,21 @@ export function createOllamaJsonClientFromEnv(): OllamaJsonClient {
 
   const baseUrl = process.env.OLLAMA_BASE_URL?.trim() || "https://ollama.com/api";
   const apiKey = process.env.OLLAMA_API_KEY?.trim();
+  if (isOllamaCloudUrl(baseUrl) && !apiKey) {
+    throw new OllamaAiError("Ollama Cloud를 사용하려면 서버 환경변수 OLLAMA_API_KEY를 설정해야 합니다.");
+  }
 
   return new OllamaJsonClient({
     baseUrl,
     model,
     apiKey,
   });
+}
+
+function isOllamaCloudUrl(value: string): boolean {
+  try {
+    return new URL(value).hostname === "ollama.com";
+  } catch {
+    return false;
+  }
 }
