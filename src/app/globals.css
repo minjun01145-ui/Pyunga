@@ -460,6 +460,24 @@ textarea {
   min-width: 980px;
 }
 
+.calendar-edit-table {
+  min-width: 1380px;
+}
+
+.calendar-edit-table input,
+.calendar-edit-table select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #bcbcbc;
+  background: #ffffff;
+  padding: 7px 8px;
+  color: var(--text);
+}
+
+.calendar-edit-table select + select {
+  margin-top: 6px;
+}
+
 .calendar-import-table th:nth-child(1) {
   width: 68px;
 }
@@ -476,6 +494,48 @@ textarea {
   width: 190px;
 }
 
+.calendar-edit-table th:nth-child(3) {
+  width: 180px;
+}
+
+.calendar-edit-table th:nth-child(4) {
+  width: 90px;
+}
+
+.calendar-edit-table th:nth-child(5) {
+  width: 210px;
+}
+
+.calendar-edit-table th:nth-child(8) {
+  width: 60px;
+}
+
+.calendar-grade-options {
+  display: grid;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.calendar-grade-options label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.calendar-grade-options input {
+  width: auto;
+}
+
+.calendar-date-inputs {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+
+.calendar-date-inputs span {
+  display: none;
+}
+
 .calendar-source-cell {
   min-width: 220px;
   font-size: 14px;
@@ -487,6 +547,27 @@ textarea {
   padding-left: 18px;
   color: var(--danger);
   font-size: 14px;
+}
+
+.calendar-period-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 14px;
+}
+
+.calendar-period-header p {
+  max-width: 760px;
+  margin: 0;
+}
+
+.calendar-period-table th:nth-child(1) {
+  width: 110px;
+}
+
+.calendar-period-table th:nth-child(2) {
+  width: 230px;
 }
 
 .ai-call-metrics-panel {
@@ -592,6 +673,10 @@ textarea {
 
   .calendar-result-header {
     display: block;
+  }
+
+  .calendar-period-header {
+    display: grid;
   }
 
   .ai-chat-message {

@@ -7,6 +7,7 @@ import type {
   SchoolGrade,
   WrittenExamKind,
 } from "../domain/academic-calendar-event";
+import { getAcademicCalendarEventIssues, isRealIsoDate } from "../domain/academic-calendar-validation";
 
 const isoDateSchema = z
   .string()
@@ -208,34 +209,10 @@ function normalizeCandidate(
   academicYear: number,
   event: z.infer<typeof aiEventSchema>,
 ): AcademicCalendarImportCandidate {
-  const issues: string[] = [];
   const endDate = event.endDate ?? undefined;
   const targetGrades = [...new Set(event.targetGrades)].sort((left, right) => left - right) as SchoolGrade[];
 
-  const academicYearStart = `${academicYear}-03-01`;
-  const academicYearEnd = `${academicYear + 1}-03-01`;
-
-  if (event.startDate < academicYearStart || event.startDate > academicYearEnd) {
-    issues.push("시작일이 선택한 학년도 범위를 벗어납니다.");
-  }
-
-  if (endDate && endDate < event.startDate) {
-    issues.push("종료일이 시작일보다 빠릅니다.");
-  }
-
-  if (endDate && (endDate < academicYearStart || endDate > academicYearEnd)) {
-    issues.push("종료일이 선택한 학년도 범위를 벗어납니다.");
-  }
-
-  if (event.type === "written_exam" && targetGrades.length === 0) {
-    issues.push("시험 대상 학년을 원문에서 확인해야 합니다.");
-  }
-
-  if (event.type === "written_exam" && !event.writtenExamKind) {
-    issues.push("중간/기말고사 구분을 확인해야 합니다.");
-  }
-
-  return {
+  const candidate = {
     academicYear,
     title: event.title,
     type: event.type,
@@ -245,7 +222,11 @@ function normalizeCandidate(
     targetGrades,
     writtenExamKind: event.type === "written_exam" ? event.writtenExamKind ?? undefined : undefined,
     sourceText: normalizeWhitespace(event.sourceText),
-    issues,
+  };
+
+  return {
+    ...candidate,
+    issues: getAcademicCalendarEventIssues(candidate, academicYear),
   };
 }
 
@@ -307,13 +288,4 @@ function validateAcademicYear(academicYear: number): void {
   if (!Number.isInteger(academicYear) || academicYear < 2000 || academicYear > 2100) {
     throw new AcademicCalendarImportError("학년도 값이 올바르지 않습니다.");
   }
-}
-
-function isRealIsoDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
-
-  const date = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }

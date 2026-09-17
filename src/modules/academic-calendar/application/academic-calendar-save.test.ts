@@ -35,4 +35,31 @@ describe("academicCalendarSaveSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("rejects a written exam until its grade and exam kind are reviewed", () => {
+    const result = academicCalendarSaveSchema.safeParse({
+      academicYear: 2027,
+      events: [{ ...validEvent, targetGrades: [], writtenExamKind: undefined }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects dates outside the selected academic year", () => {
+    const result = academicCalendarSaveSchema.safeParse({
+      academicYear: 2027,
+      events: [{ ...validEvent, startDate: "2027-02-28" }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects duplicate reviewed events", () => {
+    const result = academicCalendarSaveSchema.safeParse({
+      academicYear: 2027,
+      events: [validEvent, validEvent],
+    });
+
+    expect(result.success).toBe(false);
+  });
 });

@@ -10,7 +10,6 @@ export async function saveAcademicCalendar(params: {
   input: AcademicCalendarSaveInput;
 }): Promise<number> {
   const database = getFirebaseAdminDatabase();
-  const batch = database.batch();
   const now = Timestamp.now();
   const collection = database
     .collection("schools")
@@ -19,7 +18,10 @@ export async function saveAcademicCalendar(params: {
     .doc(String(params.input.academicYear))
     .collection("calendarEvents");
 
-  for (const event of params.input.events) {
+  const existingSnapshot = await collection.get();
+  const nextEventIds = new Set(params.input.events.map(createEventId));
+
+  await commitInChunks(params.input.events, 450, (batch, event) => {
     batch.set(collection.doc(createEventId(event)), {
       academicYear: event.academicYear,
       title: event.title,
@@ -33,10 +35,29 @@ export async function saveAcademicCalendar(params: {
       reviewedBy: params.userId,
       updatedAt: now,
     });
-  }
+  }, database);
 
-  await batch.commit();
+  const staleDocuments = existingSnapshot.docs.filter((document) => !nextEventIds.has(document.id));
+  await commitInChunks(staleDocuments, 450, (batch, document) => {
+    batch.delete(document.ref);
+  }, database);
+
   return params.input.events.length;
+}
+
+async function commitInChunks<T>(
+  items: readonly T[],
+  chunkSize: number,
+  addOperation: (batch: FirebaseFirestore.WriteBatch, item: T) => void,
+  database: FirebaseFirestore.Firestore,
+): Promise<void> {
+  for (let index = 0; index < items.length; index += chunkSize) {
+    const batch = database.batch();
+    for (const item of items.slice(index, index + chunkSize)) {
+      addOperation(batch, item);
+    }
+    await batch.commit();
+  }
 }
 
 function createEventId(event: AcademicCalendarSaveInput["events"][number]): string {
