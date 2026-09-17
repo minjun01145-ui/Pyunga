@@ -1,5 +1,5 @@
 import type { UserProfile, UserRole } from "@/modules/auth";
-import { USER_ROLES } from "@/modules/auth";
+import { isAuthenticationDisabled, USER_ROLES } from "@/modules/auth";
 import { getFirebaseAdminAuth, getFirebaseAdminDatabase } from "@/shared/firebase/admin";
 
 export class RequestAuthenticationError extends Error {
@@ -16,6 +16,16 @@ export async function requireAuthenticatedProfile(
   request: Request,
   allowedRoles?: readonly UserRole[],
 ): Promise<UserProfile> {
+  if (isAuthenticationDisabled()) {
+    return {
+      id: "development-user",
+      schoolId: "development-school",
+      displayName: "개발 사용자",
+      role: "school_admin",
+      active: true,
+    };
+  }
+
   const authorization = request.headers.get("authorization");
   if (!authorization?.startsWith("Bearer ")) {
     throw new RequestAuthenticationError("로그인이 필요합니다.");

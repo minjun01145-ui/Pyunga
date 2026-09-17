@@ -1,8 +1,14 @@
 "use client";
 
+import { isAuthenticationDisabled } from "@/modules/auth";
+
 import { getFirebaseClientAuth } from "./client";
 
 export async function authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  if (isAuthenticationDisabled()) {
+    return fetch(input, init);
+  }
+
   const user = getFirebaseClientAuth().currentUser;
   if (!user) {
     throw new Error("로그인 후 이용해 주세요.");
