@@ -461,6 +461,70 @@ textarea {
   font-size: 14px;
 }
 
+.ai-test-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.ai-chat-log {
+  min-height: 320px;
+  max-height: 560px;
+  overflow-y: auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.ai-chat-empty,
+.ai-chat-status {
+  margin: 0;
+}
+
+.ai-chat-message {
+  max-width: 82%;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  background: var(--background);
+}
+
+.ai-chat-message.user {
+  margin-left: auto;
+  background: #eef4fb;
+}
+
+.ai-chat-message strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.ai-chat-message p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.ai-chat-message span {
+  display: block;
+  margin-top: 8px;
+}
+
+.ai-chat-form {
+  display: grid;
+  gap: 10px;
+}
+
+.ai-chat-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ai-chat-form-footer .secondary-button {
+  margin-top: 0;
+}
+
 @media (max-width: 800px) {
   .calendar-import-form {
     grid-template-columns: 1fr;
@@ -468,5 +532,9 @@ textarea {
 
   .calendar-result-header {
     display: block;
+  }
+
+  .ai-chat-message {
+    max-width: 100%;
   }
 }

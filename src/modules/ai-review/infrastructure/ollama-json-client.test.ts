@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createOllamaJsonClientFromEnv,
@@ -37,6 +37,50 @@ describe("createOllamaJsonClientFromEnv", () => {
     delete process.env.OLLAMA_API_KEY;
 
     expect(createOllamaJsonClientFromEnv()).toBeInstanceOf(OllamaJsonClient);
+  });
+});
+
+describe("OllamaJsonClient", () => {
+  it("returns a plain text chat response without JSON parsing", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            message: { content: "정상적으로 연결되었습니다." },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    const client = new OllamaJsonClient({
+      baseUrl: "https://ollama.com/api/",
+      model: "gpt-oss:120b",
+      apiKey: "test-key",
+      fetchImplementation,
+    });
+
+    const result = await client.generateText({
+      messages: [{ role: "user", content: "연결 상태를 알려 주세요." }],
+      temperature: 0.2,
+    });
+
+    expect(result).toBe("정상적으로 연결되었습니다.");
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      "https://ollama.com/api/chat",
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer test-key",
+        },
+        body: JSON.stringify({
+          model: "gpt-oss:120b",
+          messages: [{ role: "user", content: "연결 상태를 알려 주세요." }],
+          stream: false,
+          options: { temperature: 0.2 },
+        }),
+      }),
+    );
   });
 });
 

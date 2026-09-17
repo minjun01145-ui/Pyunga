@@ -1,4 +1,5 @@
 import type { AiJsonClient, AiJsonRequest } from "../application/ai-json-client";
+import type { AiTextClient, AiTextRequest } from "../application/ai-text-client";
 
 type OllamaJsonClientOptions = {
   baseUrl: string;
@@ -24,7 +25,7 @@ export class OllamaAiError extends Error {
   }
 }
 
-export class OllamaJsonClient implements AiJsonClient {
+export class OllamaJsonClient implements AiJsonClient, AiTextClient {
   private readonly baseUrl: string;
   private readonly model: string;
   private readonly apiKey?: string;
@@ -40,6 +41,14 @@ export class OllamaJsonClient implements AiJsonClient {
   }
 
   async generateJson(request: AiJsonRequest): Promise<unknown> {
+    return parseJsonContent(await this.requestContent(request));
+  }
+
+  async generateText(request: AiTextRequest): Promise<string> {
+    return this.requestContent(request);
+  }
+
+  private async requestContent(request: AiTextRequest): Promise<string> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
 
@@ -73,7 +82,7 @@ export class OllamaJsonClient implements AiJsonClient {
         throw new OllamaAiError("Ollama 응답에 message.content가 없습니다.");
       }
 
-      return parseJsonContent(content);
+      return content.trim();
     } catch (error) {
       if (error instanceof OllamaAiError) {
         throw error;
@@ -132,6 +141,10 @@ export function createOllamaJsonClientFromEnv(): OllamaJsonClient {
     model,
     apiKey,
   });
+}
+
+export function createOllamaTextClientFromEnv(): AiTextClient {
+  return createOllamaJsonClientFromEnv();
 }
 
 function isOllamaCloudUrl(value: string): boolean {

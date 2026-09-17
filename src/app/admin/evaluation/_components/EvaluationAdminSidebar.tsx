@@ -2,6 +2,7 @@ import Link from "next/link";
 
 const evaluationAdminMenuItems = [
   { label: "학사일정 관리", href: "/admin/evaluation/academic-calendar" },
+  { label: "AI 작동 테스트", href: "/admin/evaluation/ai-test" },
   { label: "사용자 관리" },
   { label: "평가계획 양식 관리" },
 ] as const;
