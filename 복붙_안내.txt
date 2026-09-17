@@ -1,0 +1,32 @@
+Pyunga 2026-09-17 정리본 — 복붙용
+
+1. 이 ZIP의 내용물을 Pyunga 프로젝트 루트에 그대로 복사/덮어쓰기 하세요.
+   - AGENTS.md
+   - CONTRIBUTING.md
+   - README.md
+   - docs/*
+
+2. 아래 파일들은 현재 main 기준으로 명백한 일회성/중복/빈 placeholder라 수동 삭제하세요.
+
+APPLY_INSTRUCTIONS.md
+APPLY_INSTRUCTIONS.txt
+pyunga-academic-calendar-ai-all-events.patch
+pyunga-academic-calendar-ai-all-events-correction.patch
+tsconfig.tsbuildinfo
+src/modules/evaluation-plan/application/.gitkeep
+src/modules/evaluation-plan/infrastructure/.gitkeep
+src/modules/evaluation-plan/ui/.gitkeep
+src/modules/performance-assessment/application/.gitkeep
+src/modules/performance-assessment/infrastructure/.gitkeep
+src/modules/performance-assessment/ui/.gitkeep
+src/modules/performance-assessment/domain/scoring-model-factory.ts
+
+3. 적용 후 확인 권장:
+
+npm run typecheck
+npm run lint
+npm run test:run
+npm run build
+
+이 ZIP에는 patch 파일이나 자동 적용 스크립트가 없습니다.
+프로젝트 루트에 그대로 덮어쓰기 위한 변경 파일만 들어 있습니다.
