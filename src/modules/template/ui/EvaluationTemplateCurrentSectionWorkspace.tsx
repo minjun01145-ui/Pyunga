@@ -23,6 +23,7 @@ export function EvaluationTemplateCurrentSectionWorkspace({
   const [template, setTemplate] = useState<EvaluationTemplate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
@@ -43,6 +44,7 @@ export function EvaluationTemplateCurrentSectionWorkspace({
           setTemplate(null);
         } else {
           setTemplate(body.template);
+          setIsDirty(false);
           setError(null);
         }
       } catch (loadError) {
@@ -59,6 +61,70 @@ export function EvaluationTemplateCurrentSectionWorkspace({
       cancelled = true;
     };
   }, [sectionId]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    let currentHistoryIndex = getNavigationHistoryIndex();
+    let restoringHistory = false;
+
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    function handleDocumentClick(event: MouseEvent) {
+      if (
+        event.defaultPrevented
+        || event.button !== 0
+        || event.metaKey
+        || event.ctrlKey
+        || event.shiftKey
+        || event.altKey
+        || !(event.target instanceof Element)
+      ) {
+        return;
+      }
+      const anchor = event.target.closest("a");
+      if (!anchor || anchor.target === "_blank" || !anchor.href) return;
+      const targetUrl = new URL(anchor.href, window.location.href);
+      if (targetUrl.origin !== window.location.origin || targetUrl.href === window.location.href) return;
+      if (window.confirm("저장하지 않은 양식 변경사항이 있습니다. 저장하지 않고 이동하시겠습니까?")) return;
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    function handlePopState() {
+      const nextHistoryIndex = getNavigationHistoryIndex();
+      if (restoringHistory) {
+        restoringHistory = false;
+        currentHistoryIndex = nextHistoryIndex;
+        return;
+      }
+      if (
+        currentHistoryIndex === undefined
+        || nextHistoryIndex === undefined
+        || currentHistoryIndex === nextHistoryIndex
+      ) {
+        return;
+      }
+      if (window.confirm("저장하지 않은 양식 변경사항이 있습니다. 저장하지 않고 이동하시겠습니까?")) {
+        currentHistoryIndex = nextHistoryIndex;
+        return;
+      }
+
+      restoringHistory = true;
+      window.history.go(currentHistoryIndex - nextHistoryIndex);
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("popstate", handlePopState);
+    document.addEventListener("click", handleDocumentClick, true);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+      document.removeEventListener("click", handleDocumentClick, true);
+    };
+  }, [isDirty]);
 
   if (isLoading) {
     return <p className="muted">양식 항목을 불러오는 중입니다.</p>;
@@ -81,6 +147,7 @@ export function EvaluationTemplateCurrentSectionWorkspace({
         sections: current.sections.map((item) => item.id === sectionId ? { ...item, config } : item),
       };
     });
+    setIsDirty(true);
     setSaveMessage(null);
     setError(null);
   }
@@ -98,6 +165,7 @@ export function EvaluationTemplateCurrentSectionWorkspace({
       });
       const body = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(body.error ?? "양식 저장에 실패했습니다.");
+      setIsDirty(false);
       setSaveMessage("이 항목의 입력 양식을 저장했습니다.");
       window.dispatchEvent(new Event("evaluation-template-saved"));
     } catch (saveError) {
@@ -119,10 +187,19 @@ export function EvaluationTemplateCurrentSectionWorkspace({
       </section>
 
       <section className="panel">
-        <EvaluationTemplateSectionFormatEditor config={section.config} onChange={handleConfigChange} />
+        <EvaluationTemplateSectionFormatEditor
+          key={section.id}
+          config={section.config}
+          onChange={handleConfigChange}
+        />
         <div className="save-actions">
-          <button className="secondary-button" type="button" disabled={isSaving || !section.config} onClick={() => void handleSave()}>
-            {isSaving ? "저장 중" : "양식 저장"}
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={isSaving || !section.config || !isDirty}
+            onClick={() => void handleSave()}
+          >
+            {isSaving ? "저장 중" : isDirty ? "양식 저장" : "저장됨"}
           </button>
           {saveMessage ? <p className="validation-success">{saveMessage}</p> : null}
         </div>
@@ -130,4 +207,17 @@ export function EvaluationTemplateCurrentSectionWorkspace({
       </section>
     </div>
   );
+}
+
+type WindowWithNavigationHistory = Window & {
+  navigation?: {
+    currentEntry?: {
+      index?: number;
+    } | null;
+  };
+};
+
+function getNavigationHistoryIndex(): number | undefined {
+  const index = (window as WindowWithNavigationHistory).navigation?.currentEntry?.index;
+  return typeof index === "number" && Number.isInteger(index) ? index : undefined;
 }

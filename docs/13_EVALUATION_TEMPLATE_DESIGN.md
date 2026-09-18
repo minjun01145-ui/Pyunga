@@ -108,9 +108,9 @@ type DocumentSectionTemplate = {
 
 교수·학습표에 제공할 일정은 원본 학사일정을 복제 저장하지 않고 월별 또는 월·주별 보기로 계산한다. 월·주별 보기는 월요일부터 일요일까지를 한 주로 보고, 월 경계에 걸친 주는 그 주의 목요일이 속한 달의 주차로 표시한다. 예를 들어 목요일이 9월 3일인 주는 `9월 1주`다.
 
-### 동적 열 구성
+### 표 구조 편집
 
-학교별로 다음 열의 존재 여부, 표시명, 순서, 폭을 설정할 수 있어야 한다.
+학교별로 다음 열의 존재 여부, 표시명, 순서, 폭과 병합 구조를 설정할 수 있어야 한다.
 
 - 주차/시기
 - 단원명
@@ -123,14 +123,23 @@ type DocumentSectionTemplate = {
 - 범교과/학교행사
 - 기타 학교 커스텀 열
 
-권장 Schema:
+평가계 담당자는 개발자용 필드 목록을 먼저 수정하는 방식이 아니라 실제 표를 보면서 다음 작업을 수행한다.
+
+- 셀 안의 제목/안내 문구 직접 수정
+- 행/열 추가 및 삭제
+- 셀 병합 및 분할
+- 열 폭 조절
+- 머리글 행 지정
+- 실제 교과 데이터를 받을 셀만 `교과 입력칸`으로 지정
+
+표 편집 UI는 Tiptap TableKit을 사용한다. Tiptap은 편집 동작만 담당하며, 저장 시에는 Tiptap의 임의 문서 전체를 보관하지 않는다. Pyunga Domain이 허용한 `table / row / cell / paragraph / text`, `rowspan / colspan / colwidth`, 입력필드 연결 속성만 제한된 Schema로 검증하여 저장한다. 따라서 문서 출력기는 Tiptap에 의존하지 않고 같은 Table Template을 읽을 수 있다.
+
+핵심 Schema:
 
 ```ts
-type TeachingLearningField = {
-  id: string;
+type TableInputBinding = {
   fieldKey: string;
-  label: string;
-  source: "system" | "teacher" | "custom";
+  fieldLabel: string;
   inputKind:
     | "text"
     | "multiline"
@@ -139,25 +148,38 @@ type TeachingLearningField = {
     | "achievement_standards"
     | "bullet_list"
     | "checkbox_list";
-  placement: "main" | "detail";
-  widthWeight?: number;
+  inputSource: "system" | "teacher" | "custom";
   required?: boolean;
+};
+
+type TableCellTemplate = {
+  type: "tableCell" | "tableHeader";
+  colspan: number;
+  rowspan: number;
+  colwidth: number[] | null;
+  input?: TableInputBinding;
+  text?: string;
 };
 
 type TeachingLearningTableTemplate = {
   type: "teaching_learning_table";
-  fields: TeachingLearningField[];
-  repeatHeader: boolean;
-  orientation: "portrait" | "landscape";
-  detailHeaderLabel?: string;
+  table: TableTemplateDocument;
+  layout: {
+    repeatHeader: boolean;
+    orientation: "portrait" | "landscape";
+  };
 };
 ```
 
-`fieldKey`와 `label`을 분리한다. 예를 들어 내부 `achievementStandards` 필드를 학교에서는 `교육과정 성취기준`으로 표시할 수 있다. `placement="detail"`은 한 개의 넓은 오른쪽 영역 안에 `수업`, `평가`처럼 세로로 쌓이는 입력 영역을 표현한다.
+`fieldKey`와 화면 표시명은 분리한다. 예를 들어 내부 `achievementStandards` 필드를 학교에서는 `교육과정 성취기준`으로 표시할 수 있다. 셀 병합과 열 폭은 표 자체의 구조로 표현하므로 `main/detail` 같은 화면 전용 배치 값에 의존하지 않는다.
+
+기준 성취율, 학기단위 성취수준, 평가 방법, 정기시험 계획, 수행평가 계획 등 다른 표 Section도 같은 Table Template Schema와 편집기를 사용한다. 표 Section 공통의 `layout`에는 페이지 방향과 반복 머리글 정책을 둔다.
+
+Table Template은 학교가 확정한 **표 양식의 단일 저장 기준**이다. 고정 문구, 행·열·병합 구조, 열 폭, 교과 입력칸의 `fieldKey/inputKind/inputSource` 연결을 함께 보관한다. 과거 PDF import가 반환하던 `fields`, `rows`, `rubricColumnLabels` 같은 구조는 호환 입력으로만 받아 Table Template으로 변환하고 저장 모델에는 중복 보관하지 않는다. 이렇게 해야 관리자가 표에서 직접 수정한 내용과 별도 설정값이 서로 어긋나지 않는다.
 
 ### 교사 UI 생성
 
-교사 화면은 Template의 column Schema를 읽어 입력 필드를 생성한다.
+Table Template은 EvaluationPlan의 실제 업무 데이터를 대체하지 않는다. 교사 화면은 Template의 `fieldKey`와 입력 형식을 읽어 필요한 입력 UI를 배치하고, 실제 정기시험·수행평가·채점 결과 같은 값은 별도의 Domain 데이터에 저장한다. 즉 학교 양식의 모양과 입력 위치는 Template이, 실제 평가 사실과 반복 데이터는 EvaluationPlan Domain이 책임진다.
 
 ```text
 학교 Template
@@ -167,7 +189,7 @@ type TeachingLearningTableTemplate = {
   시스템 주차 | 입력 | 성취기준 선택 | 입력 | 입력
 ```
 
-출력 표를 그대로 편집하는 WYSIWYG 방식보다 데이터 입력 UI를 우선한다. 미리보기는 별도로 제공할 수 있다.
+평가계의 **학교 양식 설정 화면**은 표 구조를 직접 보며 수정하는 편집 방식을 사용한다. 반면 일반 교사의 **실제 평가 데이터 입력 화면**은 표 모양을 직접 고치는 화면이 아니라, 확정된 Template이 요구하는 데이터 입력에 집중한다. 양식 편집과 업무 데이터 입력의 책임을 분리한다.
 
 ## 작년도 PDF의 AI 분석
 

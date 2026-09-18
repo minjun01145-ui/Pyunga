@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AiJsonClient } from "../../ai-review";
+import { getTableTemplateFieldKeys, tableTemplateCellText } from "../domain/table-template";
 import {
   importEvaluationTemplateFromText,
   selectEvaluationTemplateSourceText,
@@ -109,7 +110,7 @@ describe("evaluation template import", () => {
     expect(firstId).toBe(secondId);
   });
 
-  it("imports the teaching-learning table input structure and stabilizes field ids", async () => {
+  it("imports the teaching-learning structure into the editable table schema", async () => {
     const aiClient: AiJsonClient = {
       async generateJson() {
         return {
@@ -177,14 +178,16 @@ describe("evaluation template import", () => {
     const config = result.sections[0].config;
     expect(config?.type).toBe("teaching_learning_table");
     if (config?.type !== "teaching_learning_table") throw new Error("teaching-learning config expected");
-    expect(config.fields.map((field) => [field.fieldKey, field.placement])).toEqual([
-      ["period", "main"],
-      ["achievementStandards", "main"],
-      ["teachingMethods", "detail"],
-      ["evaluationMethods", "detail"],
+    expect(getTableTemplateFieldKeys(config.table)).toEqual([
+      "period",
+      "achievementStandards",
+      "teachingMethods",
+      "evaluationMethods",
     ]);
-    expect(config.fields.every((field) => field.id.startsWith("field-"))).toBe(true);
-    expect(config.fields.some((field) => field.id === "ai-period")).toBe(false);
+    const detailHeader = config.table.content[0].content[0].content.at(-1);
+    expect(detailHeader?.attrs.colspan).toBe(2);
+    expect(detailHeader ? tableTemplateCellText(detailHeader) : "").toContain("수업-평가 방법");
+    expect(JSON.stringify(config.table)).not.toContain("ai-period");
   });
 
   it("keeps a three-level achievement-rate table without forcing A-E levels", async () => {
@@ -225,7 +228,9 @@ describe("evaluation template import", () => {
     const config = result.sections[0].config;
     expect(config?.type).toBe("achievement_rate_table");
     if (config?.type !== "achievement_rate_table") throw new Error("achievement-rate config expected");
-    expect(config.rows).toHaveLength(3);
-    expect(config.rows.map((row) => row.achievement)).toEqual(["A", "B", "C"]);
+    expect(config.table.content[0].content).toHaveLength(4);
+    expect(
+      config.table.content[0].content.slice(1).map((row) => tableTemplateCellText(row.content[1])),
+    ).toEqual(["A", "B", "C"]);
   });
 });

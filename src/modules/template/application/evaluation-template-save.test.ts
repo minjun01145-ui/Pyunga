@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { createDefaultEvaluationTemplateSectionConfig } from "../domain/evaluation-template-section-config";
+import { getTableTemplateFieldKeys } from "../domain/table-template";
 import { parseEvaluationTemplateSaveInput } from "./evaluation-template-save";
 
 describe("parseEvaluationTemplateSaveInput", () => {
@@ -110,9 +112,29 @@ describe("parseEvaluationTemplateSaveInput", () => {
 
     expect(template?.sections[0].config).toMatchObject({
       type: "teaching_learning_table",
-      orientation: "landscape",
-      repeatHeader: true,
+      layout: {
+        orientation: "landscape",
+        repeatHeader: true,
+      },
     });
+  });
+
+  it("round-trips the canonical editable table document", () => {
+    const config = createDefaultEvaluationTemplateSectionConfig("teaching_learning_table");
+    const template = parseEvaluationTemplateSaveInput({
+      sections: [{
+        id: "teaching",
+        title: "교수학습-평가 방법",
+        level: 1,
+        config,
+      }],
+    });
+
+    const savedConfig = template?.sections[0].config;
+    expect(savedConfig?.type).toBe("teaching_learning_table");
+    if (savedConfig?.type !== "teaching_learning_table") throw new Error("teaching-learning config expected");
+    expect(getTableTemplateFieldKeys(savedConfig.table)).toContain("achievementStandards");
+    expect(savedConfig.table.content[0].content[0].content.at(-1)?.attrs.colspan).toBe(2);
   });
 
   it("rejects an invalid section format instead of storing arbitrary config", () => {

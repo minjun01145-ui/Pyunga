@@ -11,9 +11,6 @@ import {
 } from "../domain/evaluation-template";
 import {
   parseEvaluationTemplateSectionConfig,
-  type EvaluationTemplateSectionConfig,
-  type SectionTemplateField,
-  type TeachingLearningTableField,
 } from "../domain/evaluation-template-section-config";
 
 const aiHeadingSchema = z.object({
@@ -138,7 +135,7 @@ export async function importEvaluationTemplateFromText(params: {
         title,
         level: heading.level,
         ...(heading.pageNumber ? { sourcePage: heading.pageNumber } : {}),
-        ...(parsedConfig ? { config: stabilizeImportedConfig(parsedConfig) } : {}),
+        ...(parsedConfig ? { config: parsedConfig } : {}),
       };
     }),
   ).map((heading, index) => ({ ...heading, id: `section-${index + 1}` }));
@@ -235,35 +232,6 @@ function assignStableImportedIds(
   });
 
   return normalizeEvaluationTemplateSections(inputs);
-}
-
-function stabilizeImportedConfig(config: EvaluationTemplateSectionConfig): EvaluationTemplateSectionConfig {
-  switch (config.type) {
-    case "teaching_learning_table":
-      return { ...config, fields: stabilizeTeachingFields(config.fields) };
-    case "evaluation_method_table":
-      return { ...config, fields: stabilizeFields(config.fields) };
-    case "written_assessment_table":
-      return { ...config, fields: stabilizeFields(config.fields) };
-    case "performance_assessment_table":
-      return { ...config, headerFields: stabilizeFields(config.headerFields) };
-    default:
-      return config;
-  }
-}
-
-function stabilizeTeachingFields(fields: readonly TeachingLearningTableField[]): TeachingLearningTableField[] {
-  return fields.map((fieldItem) => ({
-    ...fieldItem,
-    id: `field-${stableHash(fieldItem.fieldKey)}`,
-  }));
-}
-
-function stabilizeFields(fields: readonly SectionTemplateField[]): SectionTemplateField[] {
-  return fields.map((fieldItem) => ({
-    ...fieldItem,
-    id: `field-${stableHash(fieldItem.fieldKey)}`,
-  }));
 }
 
 function stableHash(value: string): string {

@@ -8,8 +8,8 @@ import {
   type EvaluationTemplateSectionConfig,
   type EvaluationTemplateSectionFormatType,
 } from "../domain/evaluation-template-section-config";
-import { TeachingLearningTableTemplateEditor } from "./TeachingLearningTableTemplateEditor";
-import { TeachingLearningTableTemplatePreview } from "./TeachingLearningTableTemplatePreview";
+import type { TableTemplateDocument } from "../domain/table-template";
+import { TableTemplateEditor } from "./TableTemplateEditor";
 import styles from "./EvaluationTemplateCurrentSectionWorkspace.module.css";
 
 type EvaluationTemplateSectionFormatEditorProps = {
@@ -61,35 +61,30 @@ export function EvaluationTemplateSectionFormatEditor({
     );
   }
 
-  if (config.type === "teaching_learning_table") {
-    return (
-      <div className={styles.formatConfigured}>
-        <div className={styles.formatHeader}>
-          <div>
-            <h2 className="subsection-title">교수학습-평가 입력 양식</h2>
-            <p className="muted small-copy">교과에서 실제 입력할 항목과 표 배치를 지정합니다.</p>
-          </div>
-          <FormatTypeChanger config={config} selectedType={selectedType} onSelectedTypeChange={setSelectedType} onChange={onChange} />
-        </div>
-        <TeachingLearningTableTemplateEditor config={config} onChange={onChange} />
-        <div className={styles.previewPanel}>
-          <h3 className="subsection-title">표 미리보기</h3>
-          <TeachingLearningTableTemplatePreview config={config} />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className={styles.formatConfigured}>
       <div className={styles.formatHeader}>
         <div>
           <h2 className="subsection-title">{formatLabels[config.type]}</h2>
-          <p className="muted small-copy">PDF에서 읽은 입력 구조 또는 평가계가 지정한 기본 양식입니다.</p>
+          <p className="muted small-copy">
+            {config.type === "outline_text"
+              ? "번호 단계와 본문 작성 방식을 지정합니다."
+              : "표 안에서 직접 글자와 셀 구조를 수정하세요."}
+          </p>
         </div>
         <FormatTypeChanger config={config} selectedType={selectedType} onSelectedTypeChange={setSelectedType} onChange={onChange} />
       </div>
-      <SectionFormatSummary config={config} />
+      {config.type === "outline_text" ? (
+        <p className="small-copy">번호 단계: {config.numberingLevels.map(numberingLabel).join(" → ")}</p>
+      ) : (
+        <>
+          <TableLayoutOptions config={config} onChange={onChange} />
+          <TableTemplateEditor
+            document={config.table}
+            onChange={(table) => onChange(withTable(config, table))}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -116,7 +111,16 @@ function FormatTypeChanger({
         className="text-button"
         type="button"
         disabled={selectedType === config.type}
-        onClick={() => onChange(createDefaultEvaluationTemplateSectionConfig(selectedType))}
+        onClick={() => {
+          if (
+            !window.confirm(
+              "양식 유형을 바꾸면 현재 표에서 수정한 행·열·셀 내용이 새 기본 양식으로 바뀝니다. 계속하시겠습니까?",
+            )
+          ) {
+            return;
+          }
+          onChange(createDefaultEvaluationTemplateSectionConfig(selectedType));
+        }}
       >
         유형 변경
       </button>
@@ -124,25 +128,61 @@ function FormatTypeChanger({
   );
 }
 
-function SectionFormatSummary({ config }: { config: Exclude<EvaluationTemplateSectionConfig, { type: "teaching_learning_table" }> }) {
+function TableLayoutOptions({
+  config,
+  onChange,
+}: {
+  config: Exclude<EvaluationTemplateSectionConfig, { type: "outline_text" }>;
+  onChange: (config: EvaluationTemplateSectionConfig) => void;
+}) {
+  return (
+    <div className={styles.tableOptions}>
+      <label className="field">
+        <span>페이지 방향</span>
+        <select
+          value={config.layout.orientation}
+          onChange={(event) =>
+            onChange({
+              ...config,
+              layout: {
+                ...config.layout,
+                orientation: event.target.value === "landscape" ? "landscape" : "portrait",
+              },
+            })
+          }
+        >
+          <option value="portrait">세로</option>
+          <option value="landscape">가로</option>
+        </select>
+      </label>
+      <label className={styles.checkboxField}>
+        <input
+          type="checkbox"
+          checked={config.layout.repeatHeader}
+          onChange={(event) =>
+            onChange({
+              ...config,
+              layout: { ...config.layout, repeatHeader: event.target.checked },
+            })
+          }
+        />
+        <span>페이지가 넘어가면 머리글 반복</span>
+      </label>
+    </div>
+  );
+}
+
+function withTable(
+  config: Exclude<EvaluationTemplateSectionConfig, { type: "outline_text" }>,
+  table: TableTemplateDocument,
+): EvaluationTemplateSectionConfig {
   switch (config.type) {
-    case "outline_text":
-      return <p className="small-copy">번호 단계: {config.numberingLevels.map(numberingLabel).join(" → ")}</p>;
-    case "achievement_rate_table":
-      return (
-        <table className="simple-table compact-table">
-          <thead><tr><th>{config.rateLabel}</th><th>{config.achievementLabel}</th></tr></thead>
-          <tbody>{config.rows.map((row) => <tr key={`${row.achievement}-${row.rate}`}><td>{row.rate}</td><td>{row.achievement}</td></tr>)}</tbody>
-        </table>
-      );
-    case "semester_achievement_level_table":
-      return <p className="small-copy">{config.levelLabel}: {config.levels.join(", ")} · {config.statementLabel}</p>;
-    case "evaluation_method_table":
-      return <p className="small-copy">행 구성: {config.rowLabels.join(" / ")} · 입력 항목: {config.fields.map((fieldItem) => fieldItem.label).join(", ")}</p>;
-    case "written_assessment_table":
-      return <p className="small-copy">열 구성: {config.fields.map((fieldItem) => fieldItem.label).join(" / ")}</p>;
-    case "performance_assessment_table":
-      return <p className="small-copy">상단 입력: {config.headerFields.map((fieldItem) => fieldItem.label).join(" / ")} · 채점표: {config.rubricColumnLabels.join(" / ")}</p>;
+    case "teaching_learning_table": return { ...config, table };
+    case "achievement_rate_table": return { ...config, table };
+    case "semester_achievement_level_table": return { ...config, table };
+    case "evaluation_method_table": return { ...config, table };
+    case "written_assessment_table": return { ...config, table };
+    case "performance_assessment_table": return { ...config, table };
   }
 }
 

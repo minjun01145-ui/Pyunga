@@ -16,6 +16,11 @@
     "check": "npm run typecheck && npm run lint && npm run test:run"
   },
   "dependencies": {
+    "@tiptap/core": "3.31.3",
+    "@tiptap/extension-table": "3.31.3",
+    "@tiptap/pm": "3.31.3",
+    "@tiptap/react": "3.31.3",
+    "@tiptap/starter-kit": "3.31.3",
     "firebase": "12.18.0",
     "firebase-admin": "14.3.0",
     "next": "16.3.3",
