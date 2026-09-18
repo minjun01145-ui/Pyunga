@@ -24,9 +24,9 @@ Template Section은 학교 공문서에서 익숙한 7단계 제목 구조를 �
 6. `(1) 단위`
 7. `(가) 단위`
 
-PDF import는 번호 표기와 문서의 포함 관계를 함께 보고 이 단계의 초안을 제안합니다. 저장 시에는 제목, 단계, 순서, 상위 항목 관계, 원문 페이지 정보와 `teacherEditableTitle`을 보관합니다. `teacherEditableTitle`이 켜진 Section은 현재 제목을 교사용 편집기의 회색 예시 제목으로 사용하고, 꺼진 Section은 평가계 제목을 그대로 고정합니다.
+PDF import는 번호 표기와 문서의 포함 관계를 함께 보고 이 단계의 초안을 제안합니다. 표나 개조식 입력 구조가 명확한 Section은 제한된 `config` Schema로 입력 양식도 함께 제안합니다. 저장 시에는 제목, 단계, 순서, 상위 항목 관계, 원문 페이지 정보, `teacherEditableTitle`, 확정된 Section 입력 양식을 보관합니다. `teacherEditableTitle`이 켜진 Section은 현재 제목을 교사용 편집기의 회색 예시 제목으로 사용하고, 꺼진 Section은 평가계 제목을 그대로 고정합니다.
 
-관리자 왼쪽 메뉴의 `<현재 양식 수정>`은 저장된 전체 Section 계층을 공통 navigation builder로 구성합니다. 각 링크는 Section ID를 사용하며, 현재 단계에서는 선택 화면만 제공하고 실제 Section별 편집기는 이후 기능에서 연결합니다.
+관리자 왼쪽 메뉴의 `<현재 양식 수정>`은 저장된 전체 Section 계층을 공통 navigation builder로 구성합니다. 각 링크는 Section ID를 사용합니다. Section에 입력 양식이 없으면 평가계 담당자에게 먼저 형식을 지정하도록 안내하고, 교수학습-평가 표는 열·입력 방식·입력 주체·배치·폭을 편집하고 미리볼 수 있습니다.
 
 ## 원칙
 

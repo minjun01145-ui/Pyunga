@@ -142,6 +142,7 @@ function toSectionInput(section: EvaluationTemplateSection): EvaluationTemplateS
     level: section.level,
     teacherEditableTitle: section.teacherEditableTitle,
     ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
+    ...(section.config ? { config: section.config } : {}),
   };
 }
 

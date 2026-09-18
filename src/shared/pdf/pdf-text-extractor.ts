@@ -8,6 +8,7 @@ const EXTRACTION_TIMEOUT_MS = 20_000;
 export type ExtractedPdfPage = {
   pageNumber: number;
   text: string;
+  orientation?: "portrait" | "landscape";
 };
 
 export type ExtractedPdfDocument = {
@@ -56,9 +57,21 @@ export async function extractPdfTextPages(file: File): Promise<ExtractedPdfDocum
     );
 
     const texts = Array.isArray(extraction.text) ? extraction.text : [extraction.text];
-    const pages = texts
-      .map((text, index) => ({ pageNumber: index + 1, text: text.trim() }))
-      .filter((page) => page.text.length > 0);
+    const pages = (
+      await Promise.all(
+        texts.map(async (text, index): Promise<ExtractedPdfPage | null> => {
+          const trimmedText = text.trim();
+          if (!trimmedText) return null;
+          const page = await pdf.getPage(index + 1);
+          const viewport = page.getViewport({ scale: 1 });
+          return {
+            pageNumber: index + 1,
+            text: trimmedText,
+            orientation: viewport.width > viewport.height ? "landscape" : "portrait",
+          };
+        }),
+      )
+    ).filter((page): page is ExtractedPdfPage => page !== null);
 
     if (pages.length === 0) {
       throw new PdfTextExtractionError(

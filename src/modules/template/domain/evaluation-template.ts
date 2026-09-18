@@ -1,3 +1,8 @@
+import {
+  getEvaluationTemplateSectionConfigIssues,
+  type EvaluationTemplateSectionConfig,
+} from "./evaluation-template-section-config";
+
 export type EvaluationTemplateSectionLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export type EvaluationTemplateSection = {
@@ -8,6 +13,7 @@ export type EvaluationTemplateSection = {
   order: number;
   parentId?: string;
   sourcePage?: number;
+  config?: EvaluationTemplateSectionConfig;
 };
 
 export type EvaluationTemplateSource = {
@@ -25,6 +31,7 @@ export type EvaluationTemplate = {
 export type EvaluationTemplateSectionInput = Pick<EvaluationTemplateSection, "id" | "title" | "level"> & {
   teacherEditableTitle?: boolean;
   sourcePage?: number;
+  config?: EvaluationTemplateSectionConfig;
 };
 
 const MAX_SECTION_COUNT = 100;
@@ -67,6 +74,7 @@ export function normalizeEvaluationTemplateSections(
         ? { parentId: latestParentByLevel.get((level - 1) as EvaluationTemplateSectionLevel) }
         : {}),
       ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
+      ...(section.config ? { config: section.config } : {}),
     };
 
     normalized.push(normalizedSection);
@@ -107,6 +115,10 @@ export function getEvaluationTemplateIssues(template: EvaluationTemplate): strin
 
     if (section.sourcePage !== undefined && (!Number.isInteger(section.sourcePage) || section.sourcePage < 1)) {
       issues.push(`${section.order + 1}번째 항목의 원문 페이지 정보가 올바르지 않습니다.`);
+    }
+
+    if (section.config) {
+      issues.push(...getEvaluationTemplateSectionConfigIssues(section.config));
     }
   }
 
@@ -237,6 +249,7 @@ function toSectionInput(section: EvaluationTemplateSection): EvaluationTemplateS
     level: section.level,
     teacherEditableTitle: section.teacherEditableTitle,
     ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
+    ...(section.config ? { config: section.config } : {}),
   };
 }
 

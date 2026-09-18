@@ -7,6 +7,7 @@ import {
   type EvaluationTemplateSectionInput,
   type EvaluationTemplateSource,
 } from "../domain/evaluation-template";
+import { parseEvaluationTemplateSectionConfig } from "../domain/evaluation-template-section-config";
 
 const TEMPLATE_DOCUMENT_ID = "current";
 
@@ -26,6 +27,7 @@ export async function saveEvaluationTemplate(params: {
       order: section.order,
       ...(section.parentId ? { parentId: section.parentId } : {}),
       ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
+      ...(section.config ? { config: section.config } : {}),
     })),
     ...(params.template.source ? { source: params.template.source } : {}),
     updatedBy: params.userId,
@@ -76,6 +78,7 @@ function parseStoredSection(value: unknown): EvaluationTemplateSectionInput {
   const level = value.level;
   const teacherEditableTitle = value.teacherEditableTitle;
   const sourcePage = value.sourcePage;
+  const config = value.config === undefined ? undefined : parseEvaluationTemplateSectionConfig(value.config);
 
   if (
     typeof id !== "string" ||
@@ -87,7 +90,8 @@ function parseStoredSection(value: unknown): EvaluationTemplateSectionInput {
     (level !== 1 && level !== 2 && level !== 3 && level !== 4 && level !== 5 && level !== 6 && level !== 7) ||
     (teacherEditableTitle !== undefined && typeof teacherEditableTitle !== "boolean") ||
     (sourcePage !== undefined &&
-      (typeof sourcePage !== "number" || !Number.isInteger(sourcePage) || sourcePage < 1 || sourcePage > 60))
+      (typeof sourcePage !== "number" || !Number.isInteger(sourcePage) || sourcePage < 1 || sourcePage > 60)) ||
+    (value.config !== undefined && !config)
   ) {
     throw new Error("Stored evaluation template section is invalid");
   }
@@ -98,6 +102,7 @@ function parseStoredSection(value: unknown): EvaluationTemplateSectionInput {
     level,
     teacherEditableTitle: teacherEditableTitle === true,
     ...(sourcePage === undefined ? {} : { sourcePage: Number(sourcePage) }),
+    ...(config ? { config } : {}),
   };
 }
 

@@ -33,7 +33,7 @@ export function EvaluationTemplateImportPanel({
     <section className="panel">
       <h2 className="subsection-title">전년도 평가계획 불러오기</h2>
       <p className="muted small-copy">
-        전년도 평가계획 PDF에서 문서 제목 구조를 분석해 양식 초안을 만듭니다.
+        전년도 평가계획 PDF에서 문서 제목 구조와 표·입력 방식을 분석해 양식 초안을 만듭니다.
       </p>
       <form className={styles.importForm} onSubmit={handleSubmit}>
         <label className="field">
@@ -54,7 +54,7 @@ export function EvaluationTemplateImportPanel({
       <p className={`muted small-copy ${styles.importNote}`}>
         {isLoading
           ? "문서 분량에 따라 분석에 시간이 걸릴 수 있습니다. 완료될 때까지 이 화면을 닫지 마세요."
-          : "분석 결과는 초안입니다. 제목 단계와 순서를 확인한 뒤 저장해 주세요."}
+          : "분석 결과는 초안입니다. 제목 단계와 각 항목의 입력 양식을 확인한 뒤 저장해 주세요."}
       </p>
       {fileError ? <p className="validation-error-box">{fileError}</p> : null}
     </section>

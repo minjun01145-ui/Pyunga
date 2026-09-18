@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react";
 
 import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
-import type { EvaluationTemplate, EvaluationTemplateSection } from "../domain/evaluation-template";
+import type { EvaluationTemplate } from "../domain/evaluation-template";
+import type { EvaluationTemplateSectionConfig } from "../domain/evaluation-template-section-config";
 import { getTeacherSectionTitlePresentation } from "../domain/evaluation-template-section-title";
+import { EvaluationTemplateSectionFormatEditor } from "./EvaluationTemplateSectionFormatEditor";
+import styles from "./EvaluationTemplateCurrentSectionWorkspace.module.css";
 
 type TemplateApiResponse = {
   template: EvaluationTemplate | null;
@@ -17,9 +20,11 @@ type EvaluationTemplateCurrentSectionWorkspaceProps = {
 export function EvaluationTemplateCurrentSectionWorkspace({
   sectionId,
 }: EvaluationTemplateCurrentSectionWorkspaceProps) {
-  const [section, setSection] = useState<EvaluationTemplateSection | null>(null);
+  const [template, setTemplate] = useState<EvaluationTemplate | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,17 +38,17 @@ export function EvaluationTemplateCurrentSectionWorkspace({
         const selected = body.template?.sections.find((item) => item.id === sectionId) ?? null;
         if (cancelled) return;
 
-        if (!selected) {
+        if (!selected || !body.template) {
           setError("선택한 양식 항목을 찾을 수 없습니다.");
-          setSection(null);
+          setTemplate(null);
         } else {
-          setSection(selected);
+          setTemplate(body.template);
           setError(null);
         }
       } catch (loadError) {
         if (cancelled) return;
         setError(loadError instanceof Error ? loadError.message : "평가계획 양식을 불러오지 못했습니다.");
-        setSection(null);
+        setTemplate(null);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -59,21 +64,70 @@ export function EvaluationTemplateCurrentSectionWorkspace({
     return <p className="muted">양식 항목을 불러오는 중입니다.</p>;
   }
 
-  if (error || !section) {
+  const sectionIndex = template?.sections.findIndex((item) => item.id === sectionId) ?? -1;
+  const section = sectionIndex >= 0 ? template?.sections[sectionIndex] : undefined;
+
+  if (!template || !section) {
     return <p className="validation-error-box">{error ?? "선택한 양식 항목을 찾을 수 없습니다."}</p>;
   }
 
   const titlePresentation = getTeacherSectionTitlePresentation(section);
 
+  function handleConfigChange(config: EvaluationTemplateSectionConfig) {
+    setTemplate((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        sections: current.sections.map((item) => item.id === sectionId ? { ...item, config } : item),
+      };
+    });
+    setSaveMessage(null);
+    setError(null);
+  }
+
+  async function handleSave() {
+    if (!template) return;
+    setIsSaving(true);
+    setError(null);
+    setSaveMessage(null);
+    try {
+      const response = await authenticatedFetch("/api/admin/evaluation/template/major-sections", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(template),
+      });
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(body.error ?? "양식 저장에 실패했습니다.");
+      setSaveMessage("이 항목의 입력 양식을 저장했습니다.");
+      window.dispatchEvent(new Event("evaluation-template-saved"));
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "양식 저장에 실패했습니다.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
-    <section className="panel">
-      <h1 className="page-title">{section.title}</h1>
-      <p className="page-intro muted">
-        현재 양식에서 선택한 항목입니다. 이 항목의 실제 세부 편집 방식은 다음 단계에서 구성합니다.
-      </p>
-      <p className="small-copy muted">
-        제목 설정: {titlePresentation.editable ? "교과에서 제목 설정 가능" : "평가계 제목 고정"}
-      </p>
-    </section>
+    <div className={styles.sectionWorkspace}>
+      <section className="panel">
+        <h1 className="page-title">{section.title}</h1>
+        <p className={`small-copy muted ${styles.sectionMeta}`}>
+          <span>제목 설정: {titlePresentation.editable ? "교과에서 제목 설정 가능" : "평가계 제목 고정"}</span>
+          {section.sourcePage ? <span>원문: {section.sourcePage}쪽</span> : null}
+          {template.source ? <span>불러온 파일: {template.source.fileName}</span> : null}
+        </p>
+      </section>
+
+      <section className="panel">
+        <EvaluationTemplateSectionFormatEditor config={section.config} onChange={handleConfigChange} />
+        <div className="save-actions">
+          <button className="secondary-button" type="button" disabled={isSaving || !section.config} onClick={() => void handleSave()}>
+            {isSaving ? "저장 중" : "양식 저장"}
+          </button>
+          {saveMessage ? <p className="validation-success">{saveMessage}</p> : null}
+        </div>
+        {error ? <p className="validation-error-box">{error}</p> : null}
+      </section>
+    </div>
   );
 }

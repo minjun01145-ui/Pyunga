@@ -69,39 +69,31 @@ Section 제목 단계는 국내 공문서에서 익숙한 번호 체계를 따�
 
 관리자 왼쪽 메뉴의 `<현재 양식 수정>`은 저장된 Section 전체를 `parentId` 관계로 트리화하여 보여 준다. 메뉴 링크는 제목이 아니라 Section `id`를 사용하므로 제목 변경과 관계없이 같은 Section 편집 화면을 가리킨다.
 
-권장 개념 모델:
+현재 구현 모델은 Section 계층과 입력 양식을 분리한다. 제목만 있는 상위 묶음은 `config`가 없을 수 있고, 실제 입력이 필요한 Section만 제한된 `config`를 가진다.
 
 ```ts
-type DocumentSectionType =
-  | "teaching_learning_table"
-  | "evaluation_direction"
-  | "evaluation_notes"
-  | "evaluation_summary"
-  | "written_assessment"
-  | "performance_assessment"
-  | "achievement_standard"
-  | "custom_text";
+type EvaluationTemplateSectionConfig =
+  | { type: "teaching_learning_table"; /* 교수학습 필드/배치 */ }
+  | { type: "outline_text"; /* 번호 단계 */ }
+  | { type: "achievement_rate_table"; /* 성취율/성취도 행 */ }
+  | { type: "semester_achievement_level_table"; /* 성취수준 단계 */ }
+  | { type: "evaluation_method_table"; /* 평가 방법 행/입력필드 */ }
+  | { type: "written_assessment_table"; /* 정기시험 입력필드 */ }
+  | { type: "performance_assessment_table"; /* 수행평가 상단/채점표 */ };
 
 type DocumentSectionTemplate = {
   id: string;
-  type: DocumentSectionType;
   title: string;
   teacherEditableTitle: boolean;
   level: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   parentId?: string;
   order: number;
-  enabled: boolean;
-  layout: {
-    orientation: "portrait" | "landscape";
-    startNewPage: boolean;
-    keepTogether?: boolean;
-    repeatHeader?: boolean;
-  };
-  config: unknown;
+  sourcePage?: number;
+  config?: EvaluationTemplateSectionConfig;
 };
 ```
 
-`config`를 무제한 JSON으로 방치하지 않는다. Section type별 명시적 Schema를 둔다.
+`config`는 무제한 JSON이 아니다. 각 유형은 저장 전에 명시적인 Schema로 검증하며, AI가 알 수 없는 유형이나 실행 가능한 코드는 저장하지 않는다.
 
 ## 교수·학습표 설정
 
@@ -134,24 +126,34 @@ type DocumentSectionTemplate = {
 권장 Schema:
 
 ```ts
-type TeachingLearningColumn = {
+type TeachingLearningField = {
   id: string;
   fieldKey: string;
   label: string;
   source: "system" | "teacher" | "custom";
-  order: number;
+  inputKind:
+    | "text"
+    | "multiline"
+    | "number"
+    | "percentage"
+    | "achievement_standards"
+    | "bullet_list"
+    | "checkbox_list";
+  placement: "main" | "detail";
   widthWeight?: number;
   required?: boolean;
 };
 
 type TeachingLearningTableTemplate = {
-  columns: TeachingLearningColumn[];
+  type: "teaching_learning_table";
+  fields: TeachingLearningField[];
   repeatHeader: boolean;
   orientation: "portrait" | "landscape";
+  detailHeaderLabel?: string;
 };
 ```
 
-`fieldKey`와 `label`을 분리한다. 예를 들어 내부 `achievementStandards` 필드를 학교에서는 `교육과정 성취기준`으로 표시할 수 있다.
+`fieldKey`와 `label`을 분리한다. 예를 들어 내부 `achievementStandards` 필드를 학교에서는 `교육과정 성취기준`으로 표시할 수 있다. `placement="detail"`은 한 개의 넓은 오른쪽 영역 안에 `수업`, `평가`처럼 세로로 쌓이는 입력 영역을 표현한다.
 
 ### 교사 UI 생성
 
@@ -175,6 +177,8 @@ AI가 추출할 수 있는 항목:
 
 - Section 제목 후보와 순서
 - 교수·학습표 열 제목과 순서
+- 개조식 번호 단계와 기준 성취율/성취도 표 구조
+- 학기단위 성취수준, 평가 방법, 정기시험, 수행평가 표의 입력 구조
 - 반복되는 평가계획 구성요소
 - 페이지 방향/표 헤더 등 레이아웃 힌트
 

@@ -6,6 +6,7 @@ import {
   type EvaluationTemplate,
   type EvaluationTemplateSectionInput,
 } from "../domain/evaluation-template";
+import { parseEvaluationTemplateSectionConfig } from "../domain/evaluation-template-section-config";
 
 const sectionSchema = z.object({
   id: z.string().trim().min(1).max(100),
@@ -21,6 +22,7 @@ const sectionSchema = z.object({
   ]),
   teacherEditableTitle: z.boolean().optional().default(false),
   sourcePage: z.number().int().min(1).max(60).optional(),
+  config: z.unknown().optional(),
 });
 
 const sourceSchema = z.object({
@@ -39,13 +41,19 @@ export function parseEvaluationTemplateSaveInput(value: unknown): EvaluationTemp
   const parsed = rawEvaluationTemplateSaveSchema.safeParse(value);
   if (!parsed.success) return null;
 
-  const inputs: EvaluationTemplateSectionInput[] = parsed.data.sections.map((section) => ({
-    id: section.id,
-    title: section.title,
-    level: section.level,
-    teacherEditableTitle: section.teacherEditableTitle,
-    ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
-  }));
+  const inputs: EvaluationTemplateSectionInput[] = [];
+  for (const section of parsed.data.sections) {
+    const config = section.config === undefined ? undefined : parseEvaluationTemplateSectionConfig(section.config);
+    if (section.config !== undefined && !config) return null;
+    inputs.push({
+      id: section.id,
+      title: section.title,
+      level: section.level,
+      teacherEditableTitle: section.teacherEditableTitle,
+      ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
+      ...(config ? { config } : {}),
+    });
+  }
 
   const template: EvaluationTemplate = {
     documentTitle: parsed.data.documentTitle,

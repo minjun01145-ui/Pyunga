@@ -1,0 +1,148 @@
+.sectionWorkspace {
+  display: grid;
+  gap: 16px;
+}
+
+.sectionMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin: 0;
+}
+
+.formatPrompt,
+.formatConfigured,
+.editorStack {
+  display: grid;
+  gap: 16px;
+}
+
+.formatPrompt {
+  max-width: 620px;
+}
+
+.formatPrompt p,
+.formatHeader p {
+  margin: 0;
+}
+
+.formatHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.formatTypeChange {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.tableOptions {
+  display: grid;
+  grid-template-columns: 160px minmax(220px, 0.8fr) minmax(280px, 1fr);
+  align-items: end;
+  gap: 14px;
+}
+
+.checkboxField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+}
+
+.checkboxField input {
+  margin: 0;
+}
+
+.fieldTableScroll,
+.previewScroll {
+  overflow-x: auto;
+}
+
+.fieldTable {
+  min-width: 940px;
+}
+
+.fieldTable select,
+.fieldTable input[type="text"],
+.fieldTable input[type="number"] {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #bcbcbc;
+  background: #ffffff;
+  padding: 7px 8px;
+}
+
+.fieldTable th:nth-child(1) {
+  min-width: 160px;
+}
+
+.fieldTable th:nth-child(2),
+.fieldTable th:nth-child(3),
+.fieldTable th:nth-child(4) {
+  min-width: 130px;
+}
+
+.fieldTable th:nth-child(5) {
+  width: 90px;
+}
+
+.fieldTable th:nth-child(6) {
+  width: 64px;
+}
+
+.fieldTable th:nth-child(7) {
+  width: 128px;
+}
+
+.centerCell {
+  text-align: center;
+}
+
+.fieldActions {
+  white-space: nowrap;
+}
+
+.fieldActions button + button {
+  margin-left: 7px;
+}
+
+.previewPanel {
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.previewTable {
+  min-width: 820px;
+  table-layout: fixed;
+}
+
+.previewTable th,
+.previewTable td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.detailLabelCell {
+  width: 58px;
+}
+
+.previewPlaceholder {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .formatHeader,
+  .formatTypeChange {
+    display: grid;
+  }
+
+  .tableOptions {
+    grid-template-columns: 1fr;
+  }
+}

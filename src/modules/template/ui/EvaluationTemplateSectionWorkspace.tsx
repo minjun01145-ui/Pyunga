@@ -122,6 +122,7 @@ export function EvaluationTemplateSectionWorkspace() {
             level: section.level,
             teacherEditableTitle: section.teacherEditableTitle,
             sourcePage: section.sourcePage,
+            config: section.config,
           })),
           source: template.source,
         }),

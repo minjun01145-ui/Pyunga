@@ -72,4 +72,66 @@ describe("parseEvaluationTemplateSaveInput", () => {
 
     expect(template).toBeNull();
   });
+
+  it("round-trips a typed teaching-learning input format", () => {
+    const template = parseEvaluationTemplateSaveInput({
+      sections: [
+        {
+          id: "teaching",
+          title: "교수학습-평가 방법",
+          level: 1,
+          config: {
+            type: "teaching_learning_table",
+            orientation: "landscape",
+            repeatHeader: true,
+            detailHeaderLabel: "수업-평가 방법, 수업·평가 연계의 주안점",
+            fields: [
+              {
+                id: "period",
+                fieldKey: "period",
+                label: "시기",
+                inputKind: "text",
+                source: "system",
+                placement: "main",
+              },
+              {
+                id: "evaluation-methods",
+                fieldKey: "evaluationMethods",
+                label: "평가",
+                inputKind: "multiline",
+                source: "teacher",
+                placement: "detail",
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    expect(template?.sections[0].config).toMatchObject({
+      type: "teaching_learning_table",
+      orientation: "landscape",
+      repeatHeader: true,
+    });
+  });
+
+  it("rejects an invalid section format instead of storing arbitrary config", () => {
+    const template = parseEvaluationTemplateSaveInput({
+      sections: [
+        {
+          id: "teaching",
+          title: "교수학습-평가 방법",
+          level: 1,
+          config: {
+            type: "teaching_learning_table",
+            orientation: "diagonal",
+            repeatHeader: true,
+            fields: [],
+          },
+        },
+      ],
+    });
+
+    expect(template).toBeNull();
+  });
 });

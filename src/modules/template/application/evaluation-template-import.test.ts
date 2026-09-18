@@ -11,6 +11,7 @@ describe("evaluation template import", () => {
     const source = selectEvaluationTemplateSourceText([
       {
         pageNumber: 5,
+        orientation: "portrait",
         text: [
           "1. 평가의 목적",
           "가. 평가 방침",
@@ -22,7 +23,7 @@ describe("evaluation template import", () => {
       },
     ]);
 
-    expect(source.text).toContain("--- PAGE 5 ---");
+    expect(source.text).toContain("--- PAGE 5 orientation=portrait ---");
     expect(source.headingHints).toEqual([
       "p.5 1. 평가의 목적",
       "p.5 가. 평가 방침",
@@ -106,5 +107,125 @@ describe("evaluation template import", () => {
     const firstId = first.sections.find((section) => section.title === "세부 기준")?.id;
     const secondId = second.sections.find((section) => section.title === "세부 기준")?.id;
     expect(firstId).toBe(secondId);
+  });
+
+  it("imports the teaching-learning table input structure and stabilizes field ids", async () => {
+    const aiClient: AiJsonClient = {
+      async generateJson() {
+        return {
+          data: {
+            headings: [
+              {
+                title: "교수학습-평가 방법",
+                level: 1,
+                pageNumber: 1,
+                config: {
+                  type: "teaching_learning_table",
+                  orientation: "landscape",
+                  repeatHeader: true,
+                  detailHeaderLabel: "수업-평가 방법, 수업·평가 연계의 주안점",
+                  fields: [
+                    {
+                      id: "ai-period",
+                      fieldKey: "period",
+                      label: "시기",
+                      inputKind: "text",
+                      source: "system",
+                      placement: "main",
+                    },
+                    {
+                      id: "ai-achievement",
+                      fieldKey: "achievementStandards",
+                      label: "교육과정 성취기준",
+                      inputKind: "achievement_standards",
+                      source: "teacher",
+                      placement: "main",
+                    },
+                    {
+                      id: "ai-teaching",
+                      fieldKey: "teachingMethods",
+                      label: "수업",
+                      inputKind: "multiline",
+                      source: "teacher",
+                      placement: "detail",
+                    },
+                    {
+                      id: "ai-evaluation",
+                      fieldKey: "evaluationMethods",
+                      label: "평가",
+                      inputKind: "multiline",
+                      source: "teacher",
+                      placement: "detail",
+                    },
+                  ],
+                },
+              },
+            ],
+            warnings: [],
+          },
+          metrics: { provider: "test", model: "test", elapsedMs: 1 },
+        };
+      },
+    };
+
+    const result = await importEvaluationTemplateFromText({
+      sourceText: "교수학습-평가 방법 시기 단원명 교육과정 성취기준 평가 요소 수업 평가",
+      headingHints: [],
+      aiClient,
+    });
+
+    const config = result.sections[0].config;
+    expect(config?.type).toBe("teaching_learning_table");
+    if (config?.type !== "teaching_learning_table") throw new Error("teaching-learning config expected");
+    expect(config.fields.map((field) => [field.fieldKey, field.placement])).toEqual([
+      ["period", "main"],
+      ["achievementStandards", "main"],
+      ["teachingMethods", "detail"],
+      ["evaluationMethods", "detail"],
+    ]);
+    expect(config.fields.every((field) => field.id.startsWith("field-"))).toBe(true);
+    expect(config.fields.some((field) => field.id === "ai-period")).toBe(false);
+  });
+
+  it("keeps a three-level achievement-rate table without forcing A-E levels", async () => {
+    const aiClient: AiJsonClient = {
+      async generateJson() {
+        return {
+          data: {
+            headings: [
+              {
+                title: "기준 성취율과 성취도",
+                level: 1,
+                pageNumber: 7,
+                config: {
+                  type: "achievement_rate_table",
+                  rateLabel: "기준 성취율",
+                  achievementLabel: "성취도",
+                  rows: [
+                    { rate: "80% 이상", achievement: "A" },
+                    { rate: "60% 이상 ~ 80% 미만", achievement: "B" },
+                    { rate: "60% 미만", achievement: "C" },
+                  ],
+                },
+              },
+            ],
+            warnings: [],
+          },
+          metrics: { provider: "test", model: "test", elapsedMs: 1 },
+        };
+      },
+    };
+
+    const result = await importEvaluationTemplateFromText({
+      sourceText: "기준 성취율과 성취도 80% 이상 A 60% 이상 80% 미만 B 60% 미만 C",
+      headingHints: [],
+      aiClient,
+    });
+
+    const config = result.sections[0].config;
+    expect(config?.type).toBe("achievement_rate_table");
+    if (config?.type !== "achievement_rate_table") throw new Error("achievement-rate config expected");
+    expect(config.rows).toHaveLength(3);
+    expect(config.rows.map((row) => row.achievement)).toEqual(["A", "B", "C"]);
   });
 });
