@@ -19,6 +19,7 @@ const sectionSchema = z.object({
     z.literal(6),
     z.literal(7),
   ]),
+  teacherEditableTitle: z.boolean().optional().default(false),
   sourcePage: z.number().int().min(1).max(60).optional(),
 });
 
@@ -42,6 +43,7 @@ export function parseEvaluationTemplateSaveInput(value: unknown): EvaluationTemp
     id: section.id,
     title: section.title,
     level: section.level,
+    teacherEditableTitle: section.teacherEditableTitle,
     ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
   }));
 

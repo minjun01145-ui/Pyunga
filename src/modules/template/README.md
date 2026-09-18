@@ -5,6 +5,7 @@
 ## 책임
 
 - 문서 Section 목록/순서/제목
+- Section 제목의 교과 수정 가능 여부와 교사용 예시 제목 정책
 - 전년도 평가계획 PDF에서 Section 구조 초안 생성
 - 교수·학습표 Column Schema
 - Section별 portrait/landscape
@@ -23,7 +24,9 @@ Template Section은 학교 공문서에서 익숙한 7단계 제목 구조를 �
 6. `(1) 단위`
 7. `(가) 단위`
 
-PDF import는 번호 표기와 문서의 포함 관계를 함께 보고 이 단계의 초안을 제안합니다. 저장 시에는 제목, 단계, 순서, 상위 항목 관계와 원문 페이지 정보를 보관합니다.
+PDF import는 번호 표기와 문서의 포함 관계를 함께 보고 이 단계의 초안을 제안합니다. 저장 시에는 제목, 단계, 순서, 상위 항목 관계, 원문 페이지 정보와 `teacherEditableTitle`을 보관합니다. `teacherEditableTitle`이 켜진 Section은 현재 제목을 교사용 편집기의 회색 예시 제목으로 사용하고, 꺼진 Section은 평가계 제목을 그대로 고정합니다.
+
+관리자 왼쪽 메뉴의 `<현재 양식 수정>`은 저장된 전체 Section 계층을 공통 navigation builder로 구성합니다. 각 링크는 Section ID를 사용하며, 현재 단계에서는 선택 화면만 제공하고 실제 Section별 편집기는 이후 기능에서 연결합니다.
 
 ## 원칙
 

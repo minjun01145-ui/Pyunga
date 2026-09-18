@@ -41,7 +41,7 @@
 .sectionRow {
   display: grid;
   grid-template-columns: 132px minmax(220px, 1fr) minmax(140px, 0.55fr) 64px auto;
-  align-items: end;
+  align-items: start;
   gap: 12px;
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
@@ -76,6 +76,41 @@
   width: 100%;
 }
 
+.titleFieldHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.titleFieldHeader > label:first-child {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.teacherEditableTitleToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.teacherEditableTitleToggle input {
+  width: auto;
+  margin: 0;
+}
+
+.teacherEditableTitleHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .metaField {
   display: grid;
   gap: 6px;
@@ -100,6 +135,7 @@
   align-items: center;
   gap: 8px;
   min-height: 38px;
+  margin-top: 22px;
   white-space: nowrap;
 }
 
@@ -126,6 +162,10 @@
     grid-column: 2;
   }
 
+  .rowActions {
+    margin-top: 0;
+  }
+
   .level2,
   .level3,
   .level4,
@@ -149,6 +189,10 @@
   .metaField,
   .rowActions {
     grid-column: auto;
+  }
+
+  .rowActions {
+    margin-top: 0;
   }
 
   .level2,

@@ -2,54 +2,50 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
+import type { EvaluationTemplateSection } from "@/modules/template";
+import { EvaluationTemplateSectionNavigation } from "@/modules/template/ui";
 import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
 import styles from "./EvaluationAdminSidebar.module.css";
 
-type SavedSection = {
-  id: string;
-  title: string;
-  level: 1 | 2 | 3 | 4 | 5 | 6 | 7;
-  order: number;
-};
-
 type TemplateResponse = {
-  template: { sections: SavedSection[] } | null;
+  template: { sections: EvaluationTemplateSection[] } | null;
 };
 
 export function EvaluationAdminSidebar() {
   const pathname = usePathname();
-  const [majorSections, setMajorSections] = useState<SavedSection[]>([]);
-  const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(() => pathname.startsWith("/admin/evaluation/template"));
-
-  const loadMajorSections = useCallback(async () => {
-    try {
-      const response = await authenticatedFetch("/api/admin/evaluation/template/major-sections");
-      if (!response.ok) return;
-      const body = (await response.json()) as TemplateResponse;
-      setMajorSections(
-        (body.template?.sections ?? [])
-          .filter((section) => section.level === 1)
-          .sort((left, right) => left.order - right.order),
-      );
-    } catch {
-      setMajorSections([]);
-    }
-  }, []);
+  const [templateSections, setTemplateSections] = useState<EvaluationTemplateSection[]>([]);
+  const [isTemplateMenuManuallyOpen, setIsTemplateMenuManuallyOpen] = useState(false);
+  const isTemplateMenuOpen = pathname.startsWith("/admin/evaluation/template") || isTemplateMenuManuallyOpen;
 
   useEffect(() => {
-    if (pathname.startsWith("/admin/evaluation/template")) {
-      setIsTemplateMenuOpen(true);
-    }
-  }, [pathname]);
+    let cancelled = false;
 
-  useEffect(() => {
-    void loadMajorSections();
-    const handleSaved = () => void loadMajorSections();
+    async function loadTemplateSections() {
+      try {
+        const response = await authenticatedFetch("/api/admin/evaluation/template/major-sections");
+        if (!response.ok) return;
+        const body = (await response.json()) as TemplateResponse;
+        if (!cancelled) {
+          setTemplateSections(
+            [...(body.template?.sections ?? [])].sort((left, right) => left.order - right.order),
+          );
+        }
+      } catch {
+        if (!cancelled) setTemplateSections([]);
+      }
+    }
+
+    void loadTemplateSections();
+    const handleSaved = () => void loadTemplateSections();
     window.addEventListener("evaluation-template-saved", handleSaved);
-    return () => window.removeEventListener("evaluation-template-saved", handleSaved);
-  }, [loadMajorSections]);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("evaluation-template-saved", handleSaved);
+    };
+  }, []);
 
   return (
     <aside className="evaluation-admin-sidebar" aria-label="평가계 메뉴">
@@ -61,7 +57,7 @@ export function EvaluationAdminSidebar() {
             className={styles.menuButton}
             type="button"
             aria-expanded={isTemplateMenuOpen}
-            onClick={() => setIsTemplateMenuOpen((open) => !open)}
+            onClick={() => setIsTemplateMenuManuallyOpen((open) => !open)}
           >
             평가계획 양식 관리
           </button>
@@ -69,14 +65,8 @@ export function EvaluationAdminSidebar() {
             <ul className={styles.submenu}>
               <li>
                 <Link href="/admin/evaluation/template/major-sections">대분류 관리</Link>
-                {majorSections.length > 0 ? (
-                  <ul className={styles.sectionMenu} aria-label="저장된 대분류">
-                    {majorSections.map((section) => (
-                      <li key={section.id}><span>{section.title}</span></li>
-                    ))}
-                  </ul>
-                ) : null}
               </li>
+              <li><EvaluationTemplateSectionNavigation sections={templateSections} /></li>
             </ul>
           ) : null}
         </li>

@@ -51,6 +51,8 @@
 
 학교는 Section을 추가/삭제/이름 변경/순서 변경할 수 있다.
 
+각 Section 제목에는 `교과에서 제목 설정 가능` 정책을 둘 수 있다. 정책이 꺼져 있으면 평가계가 저장한 제목을 교과가 그대로 사용한다. 정책이 켜져 있으면 평가계가 입력한 제목은 교사용 편집기에서 회색 예시 제목으로 제공하고, 교과 교사가 실제 제목을 입력할 수 있다. 이 정책은 관리자 화면의 표시 상태가 아니라 Template Schema에 저장하여 교사용 편집기와 동일한 규칙을 공유한다.
+
 Section 제목 단계는 국내 공문서에서 익숙한 번호 체계를 따라 최대 7단계로 제한한다.
 
 ```text
@@ -64,6 +66,8 @@ Section 제목 단계는 국내 공문서에서 익숙한 번호 체계를 따�
 ```
 
 저장 데이터에는 번호 문자열을 제목에 중복 보관하지 않고 `level` 값으로 계층을 표현한다. PDF import는 원문의 번호 표기와 포함 관계를 바탕으로 이 단계의 초안을 제안하며, 평가계 담당자가 최종 단계와 순서를 수정할 수 있다.
+
+관리자 왼쪽 메뉴의 `<현재 양식 수정>`은 저장된 Section 전체를 `parentId` 관계로 트리화하여 보여 준다. 메뉴 링크는 제목이 아니라 Section `id`를 사용하므로 제목 변경과 관계없이 같은 Section 편집 화면을 가리킨다.
 
 권장 개념 모델:
 
@@ -82,6 +86,7 @@ type DocumentSectionTemplate = {
   id: string;
   type: DocumentSectionType;
   title: string;
+  teacherEditableTitle: boolean;
   level: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   parentId?: string;
   order: number;

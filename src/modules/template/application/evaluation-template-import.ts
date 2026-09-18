@@ -189,6 +189,7 @@ function assignStableImportedIds(
       id: `section-${stableHash(identity)}${suffix}`,
       title: section.title,
       level: section.level,
+      teacherEditableTitle: section.teacherEditableTitle,
       ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
     };
   });

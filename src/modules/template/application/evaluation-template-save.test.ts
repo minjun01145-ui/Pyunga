@@ -16,7 +16,12 @@ describe("parseEvaluationTemplateSaveInput", () => {
       ],
     });
 
-    expect(template?.sections[6]).toMatchObject({ id: "l7", level: 7, parentId: "l6" });
+    expect(template?.sections[6]).toMatchObject({
+      id: "l7",
+      level: 7,
+      teacherEditableTitle: false,
+      parentId: "l6",
+    });
   });
 
   it("normalizes parent relationships from the submitted flat section list", () => {
@@ -28,14 +33,36 @@ describe("parseEvaluationTemplateSaveInput", () => {
     });
 
     expect(template).not.toBeNull();
-    expect(template?.sections[0]).toEqual({ id: "root", title: "평가 세부계획", level: 1, order: 0 });
+    expect(template?.sections[0]).toEqual({
+      id: "root",
+      title: "평가 세부계획",
+      level: 1,
+      teacherEditableTitle: false,
+      order: 0,
+    });
     expect(template?.sections[1]).toEqual({
       id: "child",
       title: "수행평가 세부 계획",
       level: 2,
+      teacherEditableTitle: false,
       order: 1,
       parentId: "root",
     });
+  });
+
+  it("persists whether a subject teacher may replace the section title", () => {
+    const template = parseEvaluationTemplateSaveInput({
+      sections: [
+        {
+          id: "root",
+          title: "영어과 교수학습 평가방법",
+          level: 1,
+          teacherEditableTitle: true,
+        },
+      ],
+    });
+
+    expect(template?.sections[0].teacherEditableTitle).toBe(true);
   });
 
   it("rejects a section level outside the supported seven levels", () => {

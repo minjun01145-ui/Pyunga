@@ -22,6 +22,7 @@ export async function saveEvaluationTemplate(params: {
       id: section.id,
       title: section.title,
       level: section.level,
+      teacherEditableTitle: section.teacherEditableTitle,
       order: section.order,
       ...(section.parentId ? { parentId: section.parentId } : {}),
       ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
@@ -73,6 +74,7 @@ function parseStoredSection(value: unknown): EvaluationTemplateSectionInput {
   const id = value.id;
   const title = value.title;
   const level = value.level;
+  const teacherEditableTitle = value.teacherEditableTitle;
   const sourcePage = value.sourcePage;
 
   if (
@@ -83,6 +85,7 @@ function parseStoredSection(value: unknown): EvaluationTemplateSectionInput {
     title.length === 0 ||
     title.length > 120 ||
     (level !== 1 && level !== 2 && level !== 3 && level !== 4 && level !== 5 && level !== 6 && level !== 7) ||
+    (teacherEditableTitle !== undefined && typeof teacherEditableTitle !== "boolean") ||
     (sourcePage !== undefined &&
       (typeof sourcePage !== "number" || !Number.isInteger(sourcePage) || sourcePage < 1 || sourcePage > 60))
   ) {
@@ -93,6 +96,7 @@ function parseStoredSection(value: unknown): EvaluationTemplateSectionInput {
     id,
     title,
     level,
+    teacherEditableTitle: teacherEditableTitle === true,
     ...(sourcePage === undefined ? {} : { sourcePage: Number(sourcePage) }),
   };
 }

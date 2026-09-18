@@ -4,6 +4,7 @@ export type EvaluationTemplateSection = {
   id: string;
   title: string;
   level: EvaluationTemplateSectionLevel;
+  teacherEditableTitle: boolean;
   order: number;
   parentId?: string;
   sourcePage?: number;
@@ -22,6 +23,7 @@ export type EvaluationTemplate = {
 };
 
 export type EvaluationTemplateSectionInput = Pick<EvaluationTemplateSection, "id" | "title" | "level"> & {
+  teacherEditableTitle?: boolean;
   sourcePage?: number;
 };
 
@@ -59,6 +61,7 @@ export function normalizeEvaluationTemplateSections(
       id: section.id,
       title: section.title.trim(),
       level,
+      teacherEditableTitle: section.teacherEditableTitle ?? false,
       order: index,
       ...(level > 1
         ? { parentId: latestParentByLevel.get((level - 1) as EvaluationTemplateSectionLevel) }
@@ -232,6 +235,7 @@ function toSectionInput(section: EvaluationTemplateSection): EvaluationTemplateS
     id: section.id,
     title: section.title,
     level: section.level,
+    teacherEditableTitle: section.teacherEditableTitle,
     ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
   };
 }

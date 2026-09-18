@@ -10,6 +10,7 @@ import {
   type EvaluationTemplateSectionInput,
   type EvaluationTemplateSectionLevel,
 } from "../domain/evaluation-template";
+import { EvaluationTemplateSectionTitleSetting } from "./EvaluationTemplateSectionTitleSetting";
 import styles from "./EvaluationTemplateSectionWorkspace.module.css";
 
 type EvaluationTemplateSectionEditorProps = {
@@ -54,6 +55,7 @@ export function EvaluationTemplateSectionEditor({
       id: createSectionId(),
       title: "새 항목",
       level: 1,
+      teacherEditableTitle: false,
     };
     onChange({
       ...template,
@@ -83,14 +85,15 @@ export function EvaluationTemplateSectionEditor({
               </select>
             </label>
 
-            <label className={`field ${styles.titleField}`}>
-              <span>제목</span>
-              <input
-                maxLength={120}
-                value={section.title}
-                onChange={(changeEvent) => updateSection(index, { title: changeEvent.target.value })}
-              />
-            </label>
+            <EvaluationTemplateSectionTitleSetting
+              sectionId={section.id}
+              title={section.title}
+              teacherEditableTitle={section.teacherEditableTitle}
+              onTitleChange={(title) => updateSection(index, { title })}
+              onTeacherEditableTitleChange={(teacherEditableTitle) =>
+                updateSection(index, { teacherEditableTitle })
+              }
+            />
 
             <div className={styles.metaField}>
               <span>상위 항목</span>
@@ -137,6 +140,7 @@ function toSectionInput(section: EvaluationTemplateSection): EvaluationTemplateS
     id: section.id,
     title: section.title,
     level: section.level,
+    teacherEditableTitle: section.teacherEditableTitle,
     ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
   };
 }
