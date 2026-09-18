@@ -171,7 +171,7 @@ export function TableTemplateEditor({ document, onChange }: TableTemplateEditorP
           onClick={() => splitCellSafely(editor)}
         />
         <ToolbarButton
-          label="선택 행 머리글 전환"
+          label="첫 행 머리글 전환"
           disabled={!editor.can().toggleHeaderRow() || Boolean(headerToggleIssue)}
           onClick={() => run(editor, "toggleHeaderRow")}
         />
@@ -407,23 +407,12 @@ function getMergeIssue(editor: Editor): string | undefined {
 }
 
 function getHeaderToggleIssue(editor: Editor): string | undefined {
-  const selection = editor.state.selection;
-  let hasBoundCell = false;
-  if (selection instanceof CellSelection) {
-    selection.forEachCell((node) => {
-      if (readBindingFromAttrs(node.attrs)) hasBoundCell = true;
-    });
-  } else {
-    const cellPosition = cellAround(selection.$from);
-    const row = cellPosition?.parent;
-    if (row?.type.name === "tableRow") {
-      row.forEach((node) => {
-        if (readBindingFromAttrs(node.attrs)) hasBoundCell = true;
-      });
-    }
-  }
+  const document = parseTableTemplateDocument(editor.getJSON());
+  if (!document) return undefined;
+  const firstRow = document.content[0].content[0];
+  const hasBoundCell = firstRow.content.some((cell) => Boolean(cell.attrs.fieldKey));
   return hasBoundCell
-    ? "교과 입력칸이 있는 행은 머리글 행으로 전환할 수 없습니다."
+    ? "교과 입력칸이 있는 첫 행은 머리글 행으로 전환할 수 없습니다."
     : undefined;
 }
 

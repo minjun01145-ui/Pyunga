@@ -80,6 +80,7 @@ export function EvaluationTemplateSectionFormatEditor({
         <>
           <TableLayoutOptions config={config} onChange={onChange} />
           <TableTemplateEditor
+            key={config.type}
             document={config.table}
             onChange={(table) => onChange(withTable(config, table))}
           />
