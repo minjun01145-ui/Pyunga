@@ -93,6 +93,43 @@ describe("table template", () => {
     expect(parsed?.content[0].content[0].content[0].attrs.fieldLabel).toBeUndefined();
   });
 
+  it("keeps a restricted academic-calendar system binding", () => {
+    const document = createTableTemplateDocument([
+      [{ kind: "text", text: "월", header: true }],
+      [{
+        kind: "input",
+        fieldKey: "calendarMonth",
+        fieldLabel: "월",
+        inputKind: "text",
+        inputSource: "system",
+        systemValue: "academic_calendar.month",
+      }],
+    ]);
+
+    const cell = document.content[0].content[1].content[0];
+    expect(cell.attrs).toMatchObject({
+      inputSource: "system",
+      systemValue: "academic_calendar.month",
+    });
+    expect(parseTableTemplateDocument(document)).toEqual(document);
+  });
+
+  it("rejects a system binding attached to a teacher-entered cell", () => {
+    const document = createTableTemplateDocument([[{
+      kind: "input",
+      fieldKey: "month",
+      fieldLabel: "월",
+      inputKind: "text",
+      inputSource: "teacher",
+    }]]);
+    const invalid = structuredClone(document) as unknown as {
+      content: Array<{ content: Array<{ content: Array<{ attrs: Record<string, unknown> }> }> }>;
+    };
+    invalid.content[0].content[0].content[0].attrs.systemValue = "academic_calendar.month";
+
+    expect(parseTableTemplateDocument(invalid)).toBeUndefined();
+  });
+
   it("accepts long plain-text criteria inside a table cell", () => {
     const longText = "평가기준".repeat(300);
     const parsed = parseTableTemplateDocument({

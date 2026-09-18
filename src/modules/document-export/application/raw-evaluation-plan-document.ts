@@ -1,9 +1,17 @@
 import type {
-  EvaluationPlanDraft,
-  EvaluationPlanDraftFieldValue,
+  AcademicCalendarEvent,
+} from "@/modules/academic-calendar";
+import {
+  buildTeachingLearningCalendarRows,
+  resolveAcademicCalendarSystemValue,
+  type EvaluationPlanDraft,
+  type EvaluationPlanDraftFieldValue,
+  type TeacherEvaluationContext,
+  type TeachingLearningCalendarRow,
 } from "@/modules/evaluation-plan";
 import {
   getTableTemplateColumnWidths,
+  getTableTemplateLeadingHeaderRowCount,
   tableTemplateCellText,
   type EvaluationTemplate,
   type EvaluationTemplateSectionLevel,
@@ -23,8 +31,9 @@ export type RawEvaluationPlanCellView = {
 
 export type RawEvaluationPlanTableView = {
   columnWidths: Array<number | null>;
-  repeatingHeaderRowCount: number;
-  rows: RawEvaluationPlanCellView[][];
+  headerRows: RawEvaluationPlanCellView[][];
+  bodyGroups: RawEvaluationPlanCellView[][][];
+  repeatHeader: boolean;
 };
 
 export type RawEvaluationPlanSectionView = {
@@ -34,6 +43,7 @@ export type RawEvaluationPlanSectionView = {
   title: string;
   orientation: TemplateOrientation;
   content:
+    | { kind: "unconfigured" }
     | { kind: "none" }
     | { kind: "text"; text: string }
     | { kind: "table"; table: RawEvaluationPlanTableView };
@@ -49,6 +59,10 @@ export type RawEvaluationPlanDocumentView = {
 export function buildRawEvaluationPlanDocument(
   template: EvaluationTemplate,
   draft: EvaluationPlanDraft,
+  options?: {
+    teacherContext: TeacherEvaluationContext;
+    calendarEvents: readonly AcademicCalendarEvent[];
+  },
 ): RawEvaluationPlanDocumentView {
   const counters = [0, 0, 0, 0, 0, 0, 0, 0];
   const orderedSections = template.sections
@@ -62,6 +76,17 @@ export function buildRawEvaluationPlanDocument(
         : section.title;
 
       if (!section.config) {
+        return {
+          id: section.id,
+          level: section.level,
+          marker: headingMarker(section.level, counters[section.level]),
+          title,
+          orientation: structuralHeadingOrientation(orderedSections, sectionIndex),
+          content: { kind: "unconfigured" },
+        };
+      }
+
+      if (section.config.type === "title_only") {
         return {
           id: section.id,
           level: section.level,
@@ -83,6 +108,12 @@ export function buildRawEvaluationPlanDocument(
         };
       }
 
+      const calendarRows = section.config.type === "teaching_learning_table"
+        && section.config.calendarRows.enabled
+        && options
+        ? buildTeachingLearningCalendarRows(section.config, options.calendarEvents, options.teacherContext)
+        : undefined;
+
       return {
         id: section.id,
         level: section.level,
@@ -95,6 +126,10 @@ export function buildRawEvaluationPlanDocument(
             section.config.table,
             draftSection?.fields ?? {},
             section.config.layout.repeatHeader,
+            calendarRows ? {
+              calendarRows,
+              rowValues: draftSection?.rows,
+            } : undefined,
           ),
         },
       };
@@ -117,6 +152,7 @@ function structuralHeadingOrientation(
     const descendant = sections[index];
     if (descendant.level <= section.level) break;
     if (!descendant.config) continue;
+    if (descendant.config.type === "title_only") continue;
     return descendant.config.type === "outline_text"
       ? "portrait"
       : descendant.config.layout.orientation;
@@ -137,28 +173,69 @@ function buildRawTable(
   table: TableTemplateDocument,
   values: Record<string, EvaluationPlanDraftFieldValue>,
   repeatHeader: boolean,
+  calendar?: {
+    calendarRows: readonly TeachingLearningCalendarRow[];
+    rowValues?: Record<string, { fields: Record<string, EvaluationPlanDraftFieldValue> }>;
+  },
 ): RawEvaluationPlanTableView {
-  const rows = table.content[0].content.map((row, rowIndex) => row.content.map((cell, cellIndex) => ({
-    key: `${rowIndex}-${cellIndex}`,
-    header: cell.type === "tableHeader",
-    text: resolvedCellText(cell, values),
-    colspan: cell.attrs.colspan,
-    rowspan: cell.attrs.rowspan,
-  })));
+  const templateRows = table.content[0].content;
+  const leadingHeaderRowCount = getTableTemplateLeadingHeaderRowCount(table);
+  const safeHeaderRowCount = safeRepeatingHeaderRowCount(table);
+  const headerRowCount = safeHeaderRowCount === leadingHeaderRowCount
+    ? leadingHeaderRowCount
+    : 0;
+  const headerRows = templateRows.slice(0, headerRowCount).map((row, rowIndex) =>
+    row.content.map((cell, cellIndex) => toRawCell(cell, values, `${rowIndex}-${cellIndex}`)),
+  );
+  const bodyTemplateRows = templateRows.slice(headerRowCount);
+  const bodyGroups = calendar
+    ? calendar.calendarRows.map((calendarRow) => bodyTemplateRows.map((row, rowIndex) =>
+      row.content.map((cell, cellIndex) => toRawCell(
+        cell,
+        calendar.rowValues?.[calendarRow.key]?.fields ?? {},
+        `${calendarRow.key}:${rowIndex}-${cellIndex}`,
+        calendarRow,
+      )),
+    ))
+    : [[...bodyTemplateRows.map((row, rowIndex) =>
+      row.content.map((cell, cellIndex) => toRawCell(cell, values, `${headerRowCount + rowIndex}-${cellIndex}`)),
+    )]];
 
   return {
     columnWidths: getTableTemplateColumnWidths(table),
-    repeatingHeaderRowCount: repeatHeader ? safeRepeatingHeaderRowCount(table) : 0,
-    rows,
+    headerRows,
+    bodyGroups,
+    repeatHeader: repeatHeader && headerRows.length > 0,
+  };
+}
+
+function toRawCell(
+  cell: TableTemplateCellNode,
+  values: Record<string, EvaluationPlanDraftFieldValue>,
+  key: string,
+  calendarRow?: TeachingLearningCalendarRow,
+): RawEvaluationPlanCellView {
+  return {
+    key,
+    header: cell.type === "tableHeader",
+    text: resolvedCellText(cell, values, calendarRow),
+    colspan: cell.attrs.colspan,
+    rowspan: cell.attrs.rowspan,
   };
 }
 
 function resolvedCellText(
   cell: TableTemplateCellNode,
   values: Record<string, EvaluationPlanDraftFieldValue>,
+  calendarRow?: TeachingLearningCalendarRow,
 ): string {
   const fieldKey = cell.attrs.fieldKey;
   if (!fieldKey) return tableTemplateCellText(cell);
+  if (cell.attrs.inputSource === "system") {
+    return calendarRow
+      ? resolveAcademicCalendarSystemValue(cell.attrs.systemValue, calendarRow)
+      : "";
+  }
 
   return formatFieldValue(values[fieldKey], cell.attrs.inputKind ?? "text");
 }

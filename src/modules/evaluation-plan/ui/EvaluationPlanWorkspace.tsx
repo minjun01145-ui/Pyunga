@@ -3,13 +3,17 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import type { AcademicCalendarEvent } from "@/modules/academic-calendar";
 import {
+  applyTeacherEvaluationContext,
+  buildTeachingLearningCalendarRows,
   createEmptyEvaluationPlanDraft,
   getEvaluationPlanDraftTemplateIssues,
   getEvaluationPlanTemplateSignature,
   type EvaluationPlanDraft,
   type EvaluationPlanDraftFieldValue,
   type EvaluationPlanDraftSection,
+  type TeacherEvaluationContext,
 } from "@/modules/evaluation-plan";
 import type { EvaluationTemplate, EvaluationTemplateSection } from "@/modules/template";
 import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
@@ -25,12 +29,16 @@ import styles from "./EvaluationPlanWorkspace.module.css";
 
 type WorkspaceApiResponse = {
   template: EvaluationTemplate | null;
+  teacherContext: TeacherEvaluationContext;
+  calendarEvents: AcademicCalendarEvent[];
   error?: string;
 };
 
 export function EvaluationPlanWorkspace() {
   const router = useRouter();
   const [template, setTemplate] = useState<EvaluationTemplate | null>(null);
+  const [teacherContext, setTeacherContext] = useState<TeacherEvaluationContext | null>(null);
+  const [calendarEvents, setCalendarEvents] = useState<AcademicCalendarEvent[]>([]);
   const [draft, setDraft] = useState<EvaluationPlanDraft>(createEmptyEvaluationPlanDraft);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -50,23 +58,25 @@ export function EvaluationPlanWorkspace() {
         if (!response.ok) throw new Error(body.error ?? "평가계획 작성 자료를 불러오지 못했습니다.");
         if (cancelled) return;
         setTemplate(body.template);
+        setTeacherContext(body.teacherContext);
+        setCalendarEvents(body.calendarEvents);
         if (body.template) {
-          const templateSignature = getEvaluationPlanTemplateSignature(body.template);
+          const templateSignature = getEvaluationPlanTemplateSignature(body.template, body.teacherContext);
           const storedDraft = loadEvaluationPlanDraftFromStorage(window.localStorage, templateSignature);
           if (storedDraft.status === "found") {
-            setDraft(storedDraft.draft);
+            setDraft(applyTeacherEvaluationContext(storedDraft.draft, body.teacherContext));
           } else if (storedDraft.status === "template_changed") {
-            setDraft(createEmptyEvaluationPlanDraft());
+            setDraft(createEmptyEvaluationPlanDraft(body.teacherContext));
             setStorageNotice("평가계 양식이 변경되었습니다. 이전 양식에서 작성한 초안은 브라우저에 보존하고 새 양식용 입력을 시작합니다.");
           } else if (storedDraft.status === "invalid") {
-            setDraft(createEmptyEvaluationPlanDraft());
+            setDraft(createEmptyEvaluationPlanDraft(body.teacherContext));
             setHasInvalidStorage(true);
             setError("브라우저에 저장된 평가계획 초안 형식이 올바르지 않습니다. 기존 데이터를 보호하기 위해 덮어쓰지 않습니다.");
           } else {
-            setDraft(createEmptyEvaluationPlanDraft());
+            setDraft(createEmptyEvaluationPlanDraft(body.teacherContext));
           }
         } else {
-          setDraft(createEmptyEvaluationPlanDraft());
+          setDraft(createEmptyEvaluationPlanDraft(body.teacherContext));
         }
         setIsDirty(false);
       } catch (loadError) {
@@ -97,7 +107,7 @@ export function EvaluationPlanWorkspace() {
     return <p className="validation-error-box">{error}</p>;
   }
 
-  if (!template) {
+  if (!template || !teacherContext) {
     return (
       <p className="notice">
         평가계에서 평가계획 양식을 먼저 설정해야 교과 입력을 시작할 수 있습니다.
@@ -123,7 +133,7 @@ export function EvaluationPlanWorkspace() {
                 setError("초안 저장소를 초기화하지 못했습니다.");
                 return;
               }
-              setDraft(createEmptyEvaluationPlanDraft());
+              setDraft(createEmptyEvaluationPlanDraft(teacherContext));
               setHasInvalidStorage(false);
               setError(null);
               setStorageNotice("손상된 초안을 별도 백업한 뒤 새 평가계획 입력을 시작합니다.");
@@ -158,8 +168,11 @@ export function EvaluationPlanWorkspace() {
     setMessage(null);
     setError(null);
     try {
-      if (!template) return;
-      const templateIssues = getEvaluationPlanDraftTemplateIssues(template, draft);
+      if (!template || !teacherContext) return;
+      const templateIssues = getEvaluationPlanDraftTemplateIssues(template, draft, {
+        teacherContext,
+        calendarEvents,
+      });
       if (templateIssues.length > 0) {
         const remainingCount = templateIssues.length - 1;
         setError(
@@ -171,7 +184,7 @@ export function EvaluationPlanWorkspace() {
       }
       saveEvaluationPlanDraftToStorage(
         window.localStorage,
-        getEvaluationPlanTemplateSignature(template),
+        getEvaluationPlanTemplateSignature(template, teacherContext),
         draft,
       );
       setIsDirty(false);
@@ -196,63 +209,11 @@ export function EvaluationPlanWorkspace() {
           평가계에서 확정한 양식의 구조는 그대로 유지됩니다. 교과에서는 지정된 입력칸의 내용만 작성합니다.
         </p>
         {storageNotice ? <p className="notice">{storageNotice}</p> : null}
-        <div className="form-grid three-columns">
-          <label className="field">
-            <span>학년도</span>
-            <input
-              inputMode="numeric"
-              maxLength={4}
-              placeholder="예: 2027"
-              value={draft.academicYear}
-              onChange={(event) => {
-                const value = event.target.value.replace(/\D/g, "").slice(0, 4);
-                updateDraft((current) => ({ ...current, academicYear: value }));
-              }}
-            />
-          </label>
-          <label className="field">
-            <span>학기</span>
-            <select
-              value={draft.semester}
-              onChange={(event) => {
-                const value = event.target.value;
-                if (value === "" || value === "1" || value === "2") {
-                  updateDraft((current) => ({ ...current, semester: value }));
-                }
-              }}
-            >
-              <option value="">선택</option>
-              <option value="1">1학기</option>
-              <option value="2">2학기</option>
-            </select>
-          </label>
-          <label className="field">
-            <span>학년</span>
-            <select
-              value={draft.grade}
-              onChange={(event) => {
-                const value = event.target.value;
-                if (value === "" || value === "1" || value === "2" || value === "3") {
-                  updateDraft((current) => ({ ...current, grade: value }));
-                }
-              }}
-            >
-              <option value="">선택</option>
-              <option value="1">1학년</option>
-              <option value="2">2학년</option>
-              <option value="3">3학년</option>
-            </select>
-          </label>
-          <label className="field">
-            <span>교과</span>
-            <input
-              maxLength={80}
-              placeholder="교과명 입력"
-              value={draft.subjectLabel}
-              onChange={(event) => updateDraft((current) => ({ ...current, subjectLabel: event.target.value }))}
-            />
-          </label>
-        </div>
+        <p className={styles.teacherContextLine}>
+          <strong>{teacherContext.academicYear}학년도 {teacherContext.semester}학기</strong>
+          <span>{teacherContext.grade}학년</span>
+          <span>{teacherContext.subjectLabel}</span>
+        </p>
       </section>
 
       {template.sections
@@ -263,6 +224,8 @@ export function EvaluationPlanWorkspace() {
             key={section.id}
             section={section}
             data={draft.sections[section.id] ?? { fields: {} }}
+            teacherContext={teacherContext}
+            calendarEvents={calendarEvents}
             onChange={(change) => updateSection(section.id, change)}
           />
         ))}
@@ -296,10 +259,14 @@ export function EvaluationPlanWorkspace() {
 function TeacherSection({
   section,
   data,
+  teacherContext,
+  calendarEvents,
   onChange,
 }: {
   section: EvaluationTemplateSection;
   data: EvaluationPlanDraftSection;
+  teacherContext: TeacherEvaluationContext;
+  calendarEvents: AcademicCalendarEvent[];
   onChange: (change: (current: EvaluationPlanDraftSection) => EvaluationPlanDraftSection) => void;
 }) {
   return (
@@ -322,7 +289,9 @@ function TeacherSection({
       ) : null}
 
       {!section.config ? (
-        <p className="muted small-copy">이 항목은 하위 항목을 묶는 제목입니다.</p>
+        <p className="validation-error-box">평가계에서 이 항목의 입력 양식을 아직 설정하지 않았습니다.</p>
+      ) : section.config.type === "title_only" ? (
+        <p className="muted small-copy">최종 문서에 제목만 표시되는 항목입니다.</p>
       ) : section.config.type === "outline_text" ? (
         <label className="field">
           <span>내용</span>
@@ -334,16 +303,48 @@ function TeacherSection({
           />
         </label>
       ) : (
-        <EvaluationPlanTemplateTable
-          table={section.config.table}
-          values={data.fields}
-          onChange={(fieldKey: string, value: EvaluationPlanDraftFieldValue) => {
-            onChange((current) => ({
-              ...current,
-              fields: { ...current.fields, [fieldKey]: value },
-            }));
-          }}
-        />
+        <>
+          {section.config.type === "teaching_learning_table" && section.config.calendarRows.enabled ? (() => {
+            const calendarRows = buildTeachingLearningCalendarRows(section.config, calendarEvents, teacherContext);
+            if (calendarRows.length === 0) {
+              return <p className="notice">이 학기·학년에 해당하는 저장된 학사일정이 없어 교수학습표 행을 만들 수 없습니다.</p>;
+            }
+            return (
+              <EvaluationPlanTemplateTable
+                table={section.config.table}
+                values={data.fields}
+                onChange={() => undefined}
+                calendarRows={calendarRows}
+                rowValues={data.rows}
+                onRowChange={(rowKey, fieldKey, value) => {
+                  onChange((current) => ({
+                    ...current,
+                    rows: {
+                      ...current.rows,
+                      [rowKey]: {
+                        fields: {
+                          ...(current.rows?.[rowKey]?.fields ?? {}),
+                          [fieldKey]: value,
+                        },
+                      },
+                    },
+                  }));
+                }}
+              />
+            );
+          })() : (
+            <EvaluationPlanTemplateTable
+              table={section.config.table}
+              values={data.fields}
+              onChange={(fieldKey: string, value: EvaluationPlanDraftFieldValue) => {
+                onChange((current) => ({
+                  ...current,
+                  fields: { ...current.fields, [fieldKey]: value },
+                }));
+              }}
+            />
+          )}
+        </>
       )}
     </section>
   );

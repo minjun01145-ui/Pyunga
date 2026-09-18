@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import type { AcademicCalendarEvent } from "@/modules/academic-calendar";
 import {
+  applyTeacherEvaluationContext,
   createEmptyEvaluationPlanDraft,
   getEvaluationPlanDraftTemplateIssues,
   getEvaluationPlanTemplateSignature,
   loadEvaluationPlanDraftFromStorage,
   type EvaluationPlanDraft,
+  type TeacherEvaluationContext,
 } from "@/modules/evaluation-plan";
 import type { EvaluationTemplate } from "@/modules/template";
 import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
@@ -19,11 +22,15 @@ import styles from "./RawEvaluationPlanPreviewWorkspace.module.css";
 
 type WorkspaceApiResponse = {
   template: EvaluationTemplate | null;
+  teacherContext: TeacherEvaluationContext;
+  calendarEvents: AcademicCalendarEvent[];
   error?: string;
 };
 
 export function RawEvaluationPlanPreviewWorkspace() {
   const [template, setTemplate] = useState<EvaluationTemplate | null>(null);
+  const [teacherContext, setTeacherContext] = useState<TeacherEvaluationContext | null>(null);
+  const [calendarEvents, setCalendarEvents] = useState<AcademicCalendarEvent[]>([]);
   const [draft, setDraft] = useState<EvaluationPlanDraft>(createEmptyEvaluationPlanDraft);
   const [isLoading, setIsLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
@@ -39,24 +46,26 @@ export function RawEvaluationPlanPreviewWorkspace() {
         if (!response.ok) throw new Error(body.error ?? "평가계획 양식을 불러오지 못했습니다.");
         if (cancelled) return;
         setTemplate(body.template);
+        setTeacherContext(body.teacherContext);
+        setCalendarEvents(body.calendarEvents);
         if (!body.template) {
-          setDraft(createEmptyEvaluationPlanDraft());
+          setDraft(createEmptyEvaluationPlanDraft(body.teacherContext));
           return;
         }
 
         const storedDraft = loadEvaluationPlanDraftFromStorage(
           window.localStorage,
-          getEvaluationPlanTemplateSignature(body.template),
+          getEvaluationPlanTemplateSignature(body.template, body.teacherContext),
         );
         if (storedDraft.status === "found") {
-          setDraft(storedDraft.draft);
+          setDraft(applyTeacherEvaluationContext(storedDraft.draft, body.teacherContext));
         } else if (storedDraft.status === "template_changed") {
-          setDraft(createEmptyEvaluationPlanDraft());
+          setDraft(createEmptyEvaluationPlanDraft(body.teacherContext));
           setNotice("평가계 양식이 변경되어 현재 양식과 일치하는 저장 초안이 없습니다. 이전 양식 초안은 브라우저에 보존되어 있습니다.");
         } else if (storedDraft.status === "invalid") {
           setError("브라우저에 저장된 평가계획 초안 형식이 올바르지 않아 최종본을 구성하지 않았습니다.");
         } else {
-          setDraft(createEmptyEvaluationPlanDraft());
+          setDraft(createEmptyEvaluationPlanDraft(body.teacherContext));
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -74,12 +83,16 @@ export function RawEvaluationPlanPreviewWorkspace() {
   }, []);
 
   const view = useMemo(
-    () => template ? buildRawEvaluationPlanDocument(template, draft) : null,
-    [draft, template],
+    () => template && teacherContext
+      ? buildRawEvaluationPlanDocument(template, draft, { teacherContext, calendarEvents })
+      : null,
+    [calendarEvents, draft, teacherContext, template],
   );
   const templateIssues = useMemo(
-    () => template ? getEvaluationPlanDraftTemplateIssues(template, draft) : [],
-    [draft, template],
+    () => template && teacherContext
+      ? getEvaluationPlanDraftTemplateIssues(template, draft, { teacherContext, calendarEvents })
+      : [],
+    [calendarEvents, draft, teacherContext, template],
   );
 
   if (isLoading) {

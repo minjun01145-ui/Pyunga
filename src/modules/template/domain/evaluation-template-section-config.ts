@@ -1,13 +1,16 @@
 import {
   createTableTemplateDocument,
+  getTableTemplateLeadingHeaderRowCount,
   parseTableTemplateDocument,
   type TableTemplateCellDraft,
   type TableTemplateDocument,
   type TableTemplateInputKind,
   type TableTemplateInputSource,
+  type TableTemplateSystemValue,
 } from "./table-template";
 
 export const EVALUATION_TEMPLATE_SECTION_FORMAT_TYPES = [
+  "title_only",
   "teaching_learning_table",
   "outline_text",
   "achievement_rate_table",
@@ -22,6 +25,7 @@ export type EvaluationTemplateSectionFormatType =
 
 export type TemplateFieldInputKind = TableTemplateInputKind;
 export type TemplateFieldSource = TableTemplateInputSource;
+export type TemplateSystemValue = TableTemplateSystemValue;
 export type TemplateOrientation = "portrait" | "landscape";
 export type TableLayoutPolicy = {
   orientation: TemplateOrientation;
@@ -34,6 +38,7 @@ type SectionTemplateField = {
   label: string;
   inputKind: TemplateFieldInputKind;
   source: TemplateFieldSource;
+  systemValue?: TemplateSystemValue;
   required?: boolean;
 };
 
@@ -42,13 +47,22 @@ type TeachingLearningTableField = SectionTemplateField & {
   widthWeight?: number;
 };
 
-type TableSectionConfig<TType extends Exclude<EvaluationTemplateSectionFormatType, "outline_text">> = {
+type TableSectionConfig<TType extends Exclude<EvaluationTemplateSectionFormatType, "title_only" | "outline_text">> = {
   type: TType;
   layout: TableLayoutPolicy;
   table: TableTemplateDocument;
 };
 
-export type TeachingLearningTableConfig = TableSectionConfig<"teaching_learning_table">;
+export type TitleOnlyConfig = {
+  type: "title_only";
+};
+
+export type TeachingLearningTableConfig = TableSectionConfig<"teaching_learning_table"> & {
+  calendarRows: {
+    enabled: boolean;
+    periodUnit: "month" | "month_week";
+  };
+};
 
 export type OutlineNumberingStyle =
   | "decimal_dot"
@@ -70,6 +84,7 @@ export type WrittenAssessmentTableConfig = TableSectionConfig<"written_assessmen
 export type PerformanceAssessmentTableConfig = TableSectionConfig<"performance_assessment_table">;
 
 export type EvaluationTemplateSectionConfig =
+  | TitleOnlyConfig
   | TeachingLearningTableConfig
   | OutlineTextConfig
   | AchievementRateTableConfig
@@ -101,9 +116,20 @@ export function createDefaultEvaluationTemplateSectionConfig(
   type: EvaluationTemplateSectionFormatType,
 ): EvaluationTemplateSectionConfig {
   switch (type) {
+    case "title_only":
+      return { type };
     case "teaching_learning_table": {
       const fields = [
-        teachingField("period", "period", "시기", "text", "system", "main", 0.8),
+        teachingField(
+          "period",
+          "period",
+          "시기",
+          "text",
+          "system",
+          "main",
+          0.8,
+          "academic_calendar.period",
+        ),
         teachingField("lesson-hours", "lessonHours", "시수/누계", "text", "teacher", "main", 0.9),
         teachingField("unit-name", "unitName", "단원명", "text", "teacher", "main", 1.2),
         teachingField(
@@ -122,6 +148,7 @@ export function createDefaultEvaluationTemplateSectionConfig(
       return {
         type,
         layout: defaultTableLayout(),
+        calendarRows: { enabled: true, periodUnit: "month_week" },
         table: buildTeachingLearningTable(
           fields,
           "수업-평가 방법, 수업·평가 연계의 주안점",
@@ -202,14 +229,25 @@ export function parseEvaluationTemplateSectionConfig(value: unknown): Evaluation
   if (!isRecord(value) || typeof value.type !== "string") return undefined;
 
   switch (value.type) {
+    case "title_only":
+      return { type: value.type };
     case "teaching_learning_table": {
       const layout = value.layout !== undefined
         ? parseTableLayout(value.layout)
         : parseLegacyTeachingLayout(value);
       if (!layout) return undefined;
       const storedTable = parseOptionalStoredTable(value.table);
+      const parsedCalendarRows = parseTeachingLearningCalendarRows(value.calendarRows);
+      if (value.calendarRows !== undefined && !parsedCalendarRows) return undefined;
       if (value.table !== undefined) {
-        return storedTable ? { type: value.type, layout, table: storedTable } : undefined;
+        if (!storedTable) return undefined;
+        const migratedTable = migrateTeachingLearningSystemValues(storedTable);
+        return {
+          type: value.type,
+          layout,
+          calendarRows: parsedCalendarRows ?? inferTeachingLearningCalendarRows(migratedTable),
+          table: migratedTable,
+        };
       }
       const fields = parseTeachingFields(value.fields);
       if (!fields) return undefined;
@@ -218,6 +256,7 @@ export function parseEvaluationTemplateSectionConfig(value: unknown): Evaluation
       return {
         type: value.type,
         layout,
+        calendarRows: parsedCalendarRows ?? inferLegacyTeachingCalendarRows(fields),
         table: buildTeachingLearningTable(fields, detailHeaderLabel),
       };
     }
@@ -315,14 +354,51 @@ export function parseEvaluationTemplateSectionConfig(value: unknown): Evaluation
 }
 
 export function getEvaluationTemplateSectionConfigIssues(config: EvaluationTemplateSectionConfig): string[] {
-  if (config.type === "outline_text") return [];
+  if (config.type === "title_only" || config.type === "outline_text") return [];
   const fieldKeys = new Set<string>();
+  let systemCellCount = 0;
   for (const row of config.table.content[0].content) {
     for (const cell of row.content) {
       const fieldKey = cell.attrs.fieldKey;
       if (!fieldKey) continue;
       if (fieldKeys.has(fieldKey)) return ["표에 같은 입력 항목이 두 번 연결되어 있습니다."];
       fieldKeys.add(fieldKey);
+      if (cell.attrs.inputSource === "system") {
+        systemCellCount += 1;
+        if (config.type !== "teaching_learning_table") {
+          return ["학사일정 자동값은 교수학습-평가 표에서만 사용할 수 있습니다."];
+        }
+        if (!cell.attrs.systemValue) {
+          return ["학사일정 자동 데이터 칸에서 표시할 값을 선택해 주세요."];
+        }
+      }
+    }
+  }
+  if (config.type === "teaching_learning_table") {
+    if (systemCellCount > 0 && !config.calendarRows.enabled) {
+      return ["학사일정 자동 데이터 칸을 사용하려면 학사일정 기준 자동 행 생성을 켜 주세요."];
+    }
+    if (
+      config.calendarRows.periodUnit === "month"
+      && config.table.content[0].content.some((row) => row.content.some(
+        (cell) => cell.attrs.systemValue === "academic_calendar.week",
+      ))
+    ) {
+      return ["월 단위 자동 행에서는 '학사일정: 주' 값을 사용할 수 없습니다."];
+    }
+  }
+  if (config.type === "teaching_learning_table" && config.calendarRows.enabled) {
+    const rows = config.table.content[0].content;
+    const headerRowCount = getTableTemplateLeadingHeaderRowCount(config.table);
+    if (headerRowCount >= rows.length) {
+      return ["학사일정 자동 행을 사용하려면 머리글 아래에 반복할 본문 행이 하나 이상 필요합니다."];
+    }
+    for (let rowIndex = 0; rowIndex < headerRowCount; rowIndex += 1) {
+      for (const cell of rows[rowIndex].content) {
+        if (rowIndex + cell.attrs.rowspan > headerRowCount) {
+          return ["학사일정 자동 행을 사용할 때 머리글 셀은 본문 행까지 세로 병합할 수 없습니다."];
+        }
+      }
     }
   }
   return [];
@@ -336,8 +412,18 @@ function teachingField(
   source: TemplateFieldSource,
   placement: "main" | "detail",
   widthWeight: number,
+  systemValue?: TemplateSystemValue,
 ): TeachingLearningTableField {
-  return { id, fieldKey, label, inputKind, source, placement, widthWeight };
+  return {
+    id,
+    fieldKey,
+    label,
+    inputKind,
+    source,
+    placement,
+    widthWeight,
+    ...(systemValue ? { systemValue } : {}),
+  };
 }
 
 function field(id: string, fieldKey: string, label: string, inputKind: TemplateFieldInputKind): SectionTemplateField {
@@ -524,6 +610,7 @@ function inputDraft(
     fieldLabel: item.label,
     inputKind: item.inputKind,
     inputSource: item.source,
+    ...(item.systemValue ? { systemValue: item.systemValue } : {}),
     ...(item.required === undefined ? {} : { required: item.required }),
     ...(span?.colspan ? { colspan: span.colspan } : {}),
     ...(span?.rowspan ? { rowspan: span.rowspan } : {}),
@@ -599,7 +686,15 @@ function parseTeachingFields(value: unknown): TeachingLearningTableField[] | und
     if (widthWeight !== undefined && (typeof widthWeight !== "number" || !Number.isFinite(widthWeight) || widthWeight <= 0 || widthWeight > 20)) {
       return undefined;
     }
-    result.push({ ...parsed, placement: item.placement, ...(widthWeight === undefined ? {} : { widthWeight }) });
+    const systemValue = parsed.source === "system"
+      ? parsed.systemValue ?? inferTeachingCalendarSystemValue(parsed.fieldKey, parsed.label)
+      : undefined;
+    result.push({
+      ...parsed,
+      ...(systemValue ? { systemValue } : {}),
+      placement: item.placement,
+      ...(widthWeight === undefined ? {} : { widthWeight }),
+    });
   }
   return result;
 }
@@ -622,10 +717,130 @@ function parseField(value: unknown): SectionTemplateField | undefined {
   const label = readString(value.label, 120);
   const inputKind = value.inputKind;
   const source = value.source;
+  const systemValue = parseTemplateSystemValue(value.systemValue);
   if (!id || !fieldKey || !label || !isTemplateFieldInputKind(inputKind) || !isTemplateFieldSource(source)) return undefined;
+  if (value.systemValue !== undefined && systemValue === undefined) return undefined;
+  if (systemValue && source !== "system") return undefined;
   if (!/^[A-Za-z0-9_-]+$/.test(id) || !/^[A-Za-z][A-Za-z0-9_.-]*$/.test(fieldKey)) return undefined;
   if (value.required !== undefined && typeof value.required !== "boolean") return undefined;
-  return { id, fieldKey, label, inputKind, source, ...(value.required === undefined ? {} : { required: value.required }) };
+  return {
+    id,
+    fieldKey,
+    label,
+    inputKind,
+    source,
+    ...(systemValue ? { systemValue } : {}),
+    ...(value.required === undefined ? {} : { required: value.required }),
+  };
+}
+
+function parseTeachingLearningCalendarRows(value: unknown): TeachingLearningTableConfig["calendarRows"] | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value) || typeof value.enabled !== "boolean") return undefined;
+  if (value.periodUnit !== "month" && value.periodUnit !== "month_week") return undefined;
+  return { enabled: value.enabled, periodUnit: value.periodUnit };
+}
+
+function inferTeachingLearningCalendarRows(table: TableTemplateDocument): TeachingLearningTableConfig["calendarRows"] {
+  let hasSystemField = false;
+  let needsWeeklyRows = false;
+  for (const row of table.content[0].content) {
+    for (const cell of row.content) {
+      if (cell.attrs.inputSource !== "system" || !cell.attrs.systemValue) continue;
+      hasSystemField = true;
+      if (
+        cell.attrs.systemValue === "academic_calendar.week"
+        || cell.attrs.systemValue === "academic_calendar.date_range"
+        || cell.attrs.systemValue === "academic_calendar.events"
+        || cell.attrs.systemValue === "academic_calendar.period"
+      ) {
+        needsWeeklyRows = true;
+      }
+    }
+  }
+  return {
+    enabled: hasSystemField,
+    periodUnit: needsWeeklyRows ? "month_week" : "month",
+  };
+}
+
+function inferLegacyTeachingCalendarRows(
+  fields: readonly TeachingLearningTableField[],
+): TeachingLearningTableConfig["calendarRows"] {
+  const systemFields = fields.filter((fieldItem) => fieldItem.source === "system" && fieldItem.systemValue);
+  return {
+    enabled: systemFields.length > 0,
+    periodUnit: systemFields.some((fieldItem) => fieldItem.systemValue !== "academic_calendar.month")
+      ? "month_week"
+      : "month",
+  };
+}
+
+function migrateTeachingLearningSystemValues(table: TableTemplateDocument): TableTemplateDocument {
+  return {
+    ...table,
+    content: [{
+      ...table.content[0],
+      content: table.content[0].content.map((row) => ({
+        ...row,
+        content: row.content.map((cell) => {
+          if (cell.attrs.inputSource !== "system" || cell.attrs.systemValue) return cell;
+          const inferred = inferTeachingCalendarSystemValue(
+            cell.attrs.fieldKey ?? "",
+            cell.attrs.fieldLabel ?? "",
+          );
+          return inferred
+            ? { ...cell, attrs: { ...cell.attrs, systemValue: inferred } }
+            : cell;
+        }),
+      })),
+    }],
+  };
+}
+
+function inferTeachingCalendarSystemValue(
+  fieldKey: string,
+  label: string,
+): TemplateSystemValue | undefined {
+  const normalizedKey = fieldKey.replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const normalizedLabel = label.replace(/[\s()·/_-]/g, "").toLowerCase();
+
+  if (normalizedLabel === "월" || normalizedKey === "month" || normalizedKey.endsWith("month")) {
+    return "academic_calendar.month";
+  }
+  if (
+    normalizedLabel === "주"
+    || normalizedLabel.startsWith("주차")
+    || normalizedKey === "week"
+    || normalizedKey.endsWith("week")
+  ) {
+    return "academic_calendar.week";
+  }
+  if (
+    normalizedLabel.includes("기간")
+    || normalizedLabel.includes("날짜")
+    || normalizedKey.includes("daterange")
+    || normalizedKey.includes("perioddate")
+  ) {
+    return "academic_calendar.date_range";
+  }
+  if (
+    normalizedLabel.includes("학사일정")
+    || normalizedLabel.includes("학교행사")
+    || normalizedKey.includes("calendarevent")
+    || normalizedKey.includes("schoolevent")
+    || normalizedKey === "crosscurricularevents"
+  ) {
+    return "academic_calendar.events";
+  }
+  if (
+    normalizedLabel === "시기"
+    || normalizedKey === "period"
+    || normalizedKey.endsWith("period")
+  ) {
+    return "academic_calendar.period";
+  }
+  return undefined;
 }
 
 function parseAchievementRateRows(value: unknown): Array<{ rate: string; achievement: string }> | undefined {
@@ -667,6 +882,17 @@ function isTemplateFieldInputKind(value: unknown): value is TemplateFieldInputKi
 
 function isTemplateFieldSource(value: unknown): value is TemplateFieldSource {
   return typeof value === "string" && FIELD_SOURCES.has(value as TemplateFieldSource);
+}
+
+function parseTemplateSystemValue(value: unknown): TemplateSystemValue | undefined {
+  switch (value) {
+    case "academic_calendar.period": return value;
+    case "academic_calendar.month": return value;
+    case "academic_calendar.week": return value;
+    case "academic_calendar.date_range": return value;
+    case "academic_calendar.events": return value;
+    default: return undefined;
+  }
 }
 
 function isOutlineNumberingStyle(value: unknown): value is OutlineNumberingStyle {

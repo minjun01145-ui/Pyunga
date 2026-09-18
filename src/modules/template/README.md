@@ -28,9 +28,11 @@ PDF import는 번호 표기와 문서의 포함 관계를 함께 보고 이 단�
 
 관리자 왼쪽 메뉴의 `<현재 양식 수정>`은 저장된 전체 Section 계층을 공통 navigation builder로 구성합니다. 각 링크는 Section ID를 사용합니다. Section에 입력 양식이 없으면 평가계 담당자에게 먼저 형식을 지정하도록 안내합니다.
 
-표를 사용하는 Section은 Tiptap TableKit 기반 공통 편집기를 사용합니다. 평가계 담당자는 실제 표에서 셀 내용을 직접 고치고, 행·열 추가/삭제, 셀 병합/분할, 열 폭 조절을 수행합니다. 실제 교과 데이터를 받을 셀만 `교과 입력칸`으로 연결합니다. Tiptap은 UI 편집 엔진으로만 사용하며 저장 데이터는 Domain의 제한된 Table Template Schema로 다시 검증합니다.
+표를 사용하는 Section은 Tiptap TableKit 기반 공통 편집기를 사용합니다. 평가계 담당자는 실제 표에서 셀 내용을 직접 고치고, 행·열 추가/삭제, 셀 병합/분할, 열 폭 조절을 수행합니다. 실제 교과 데이터나 학사일정 자동값을 받을 셀만 `데이터 칸`으로 연결합니다. Tiptap은 UI 편집 엔진으로만 사용하며 저장 데이터는 Domain의 제한된 Table Template Schema로 다시 검증합니다.
 
-표 Section의 학교 양식은 공통 Table Template을 단일 기준으로 저장합니다. 고정 문구, 행·열·병합 구조, 열 폭, 교과 입력칸의 `fieldKey/inputKind/inputSource` 연결이 모두 이 제한된 Schema 안에 들어갑니다. 예전 PDF 분석이 반환하던 `fields/rows/rubricColumnLabels` 같은 구조는 저장 모델이 아니라 import 호환 입력으로만 받아 Table Template으로 변환합니다. 실제 평가 점수·성취기준·채점 결과 같은 업무 데이터는 별도의 EvaluationPlan Domain에 남습니다. 페이지 방향과 반복 머리글은 모든 표 Section이 공통 `layout` 정책으로 관리합니다.
+표 Section의 학교 양식은 공통 Table Template을 단일 기준으로 저장합니다. 고정 문구, 행·열·병합 구조, 열 폭, 교과 입력칸의 `fieldKey/inputKind/inputSource` 연결이 모두 이 제한된 Schema 안에 들어갑니다. 교수·학습표의 시스템 셀은 `systemValue`로 학사일정의 월·주·기간·주요일정 중 무엇을 표시할지 지정하고, `calendarRows`로 월별/주별 자동 행 생성을 선택합니다. 예전 PDF 분석이 반환하던 `fields/rows/rubricColumnLabels` 같은 구조는 저장 모델이 아니라 import 호환 입력으로만 받아 Table Template으로 변환합니다. 실제 평가 점수·성취기준·채점 결과 같은 업무 데이터는 별도의 EvaluationPlan Domain에 남습니다. 페이지 방향과 반복 머리글은 모든 표 Section이 공통 `layout` 정책으로 관리합니다.
+
+본문이 없는 상위 제목은 `title_only` Section config로 명시합니다. `config`가 없는 상태는 아직 양식을 지정하지 않은 Section과 구분되므로, 평가계 화면에서 의도적으로 `제목만`을 선택해 확정할 수 있습니다.
 
 ## 원칙
 

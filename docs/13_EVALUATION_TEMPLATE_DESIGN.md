@@ -73,6 +73,7 @@ Section 제목 단계는 국내 공문서에서 익숙한 번호 체계를 따�
 
 ```ts
 type EvaluationTemplateSectionConfig =
+  | { type: "title_only" }
   | { type: "teaching_learning_table"; /* 교수학습 필드/배치 */ }
   | { type: "outline_text"; /* 번호 단계 */ }
   | { type: "achievement_rate_table"; /* 성취율/성취도 행 */ }
@@ -101,12 +102,23 @@ type DocumentSectionTemplate = {
 
 ### 학사일정 역할
 
-- 학년도/학기 시작일과 종료일을 기준으로 주차 후보를 생성한다.
-- 휴업일, 공휴일, 학교행사, 정기고사 등 공식 일정을 주차 맥락으로 제공한다.
-- 시스템이 주별 행을 자동 생성하되, 실제 수업 내용은 교사가 입력한다.
-- 일정 자체가 교수·학습표의 모든 행을 결정하는 것은 아니다. 일정은 주차 생성과 작성 보조 정보의 기준이다.
+- 저장된 학사일정 중 해당 학기·학년에 적용되는 일정을 기준으로 월별 또는 월·주별 기간을 연속 생성한다.
+- 기간 사이에 행사가 없는 주도 빠뜨리지 않고 교수·학습표 행을 만든다.
+- 휴업일, 공휴일, 학교행사, 정기고사 등 공식 일정을 각 기간의 `주요 학사 일정` 값으로 제공한다.
+- 시스템이 기간별 행을 자동 생성하되, 단원·성취기준·수업·평가 내용은 교사가 입력한다.
 
-교수·학습표에 제공할 일정은 원본 학사일정을 복제 저장하지 않고 월별 또는 월·주별 보기로 계산한다. 월·주별 보기는 월요일부터 일요일까지를 한 주로 보고, 월 경계에 걸친 주는 그 주의 목요일이 속한 달의 주차로 표시한다. 예를 들어 목요일이 9월 3일인 주는 `9월 1주`다.
+교수·학습표에 제공할 일정은 원본 학사일정을 복제 저장하지 않고 월별 또는 월·주별 보기로 계산한다. 월·주별 보기는 월요일부터 일요일까지를 한 주로 보고, 월 경계에 걸친 주는 그 주의 목요일이 속한 달의 주차로 표시한다. 예를 들어 목요일이 9월 3일인 주는 `9월 1주`다. 학교 양식에 따라 `월` 하나만 자동 표시하거나, `월 / 주 / 기간 / 주요 학사 일정`을 각각 별도 시스템 셀로 둘 수 있다.
+
+교수·학습표 Template에는 행 생성 정책을 별도로 둔다.
+
+```ts
+calendarRows: {
+  enabled: boolean;
+  periodUnit: "month" | "month_week";
+}
+```
+
+`month`는 월별 한 행(또는 관리자가 만든 한 본문 블록)을, `month_week`는 주별 한 본문 블록을 생성한다. 실제 표의 머리글과 본문 블록 구조는 평가계가 Tiptap에서 확정한 canonical Table Template을 그대로 사용한다. 즉 자동 행 생성 때문에 별도의 표 구조를 두 번째로 저장하지 않는다.
 
 ### 표 구조 편집
 
@@ -130,7 +142,7 @@ type DocumentSectionTemplate = {
 - 셀 병합 및 분할
 - 열 폭 조절
 - 머리글 행 지정
-- 실제 교과 데이터를 받을 셀만 `교과 입력칸`으로 지정
+- 실제 교과 데이터나 시스템 자동값을 받을 셀만 `데이터 칸`으로 지정
 
 표 편집 UI는 Tiptap TableKit을 사용한다. Tiptap은 편집 동작만 담당하며, 저장 시에는 Tiptap의 임의 문서 전체를 보관하지 않는다. Pyunga Domain이 허용한 `table / row / cell / paragraph / text`, `rowspan / colspan / colwidth`, 입력필드 연결 속성만 제한된 Schema로 검증하여 저장한다. 따라서 문서 출력기는 Tiptap에 의존하지 않고 같은 Table Template을 읽을 수 있다.
 
@@ -149,6 +161,12 @@ type TableInputBinding = {
     | "bullet_list"
     | "checkbox_list";
   inputSource: "system" | "teacher" | "custom";
+  systemValue?:
+    | "academic_calendar.period"
+    | "academic_calendar.month"
+    | "academic_calendar.week"
+    | "academic_calendar.date_range"
+    | "academic_calendar.events";
   required?: boolean;
 };
 
@@ -164,6 +182,10 @@ type TableCellTemplate = {
 type TeachingLearningTableTemplate = {
   type: "teaching_learning_table";
   table: TableTemplateDocument;
+  calendarRows: {
+    enabled: boolean;
+    periodUnit: "month" | "month_week";
+  };
   layout: {
     repeatHeader: boolean;
     orientation: "portrait" | "landscape";
@@ -191,7 +213,7 @@ Table Template은 EvaluationPlan의 실제 업무 데이터를 대체하지 않�
 
 평가계의 **학교 양식 설정 화면**은 표 구조를 직접 보며 수정하는 편집 방식을 사용한다. 반면 일반 교사의 **실제 평가 데이터 입력 화면**은 표 모양을 직접 고치는 화면이 아니라, 확정된 Template이 요구하는 데이터 입력에 집중한다. 양식 편집과 업무 데이터 입력의 책임을 분리한다.
 
-현재 교사용 작성 화면은 이 원칙대로 canonical Table Template을 읽어 고정 문구·병합·열 폭을 그대로 표시하고, `fieldKey`가 지정된 셀에만 입력 컨트롤을 배치한다. `inputSource="system"` 메타데이터는 유지하지만 학사일정 등 실제 자동 공급원이 아직 연결되지 않은 raw 데모에서는 빈 칸을 고정하지 않고 교사가 값을 입력할 수 있게 한다. 이후 실제 system resolver가 연결될 때 해당 값을 자동 공급한다. 로그인 기능이 비활성화된 데모 단계에서는 교사 Form Draft를 브라우저 로컬 저장소에만 저장하여 서로 다른 방문자가 같은 개발 사용자 문서를 덮어쓰지 않게 한다.
+현재 교사용 작성 화면은 이 원칙대로 canonical Table Template을 읽어 고정 문구·병합·열 폭을 그대로 표시하고, `fieldKey`가 지정된 셀에만 입력 컨트롤을 배치한다. 교수·학습표의 `inputSource="system"` 셀은 학사일정 resolver가 월·주·기간·주요일정을 자동 공급하므로 교사가 수정하지 않는다. 학사일정 자동 행이 켜진 표는 머리글 아래의 본문 블록을 월/주 기간 수만큼 반복하고, 교사가 입력한 값은 `기간 key + fieldKey` 단위로 Form Draft에 저장한다. 로그인 기능이 비활성화된 데모 단계에서는 교사 Form Draft를 브라우저 로컬 저장소에만 저장하여 서로 다른 방문자가 같은 개발 사용자 문서를 덮어쓰지 않게 한다.
 
 Table Template 자체에는 반복 컬렉션의 의미가 없다. 따라서 한 `fieldKey`를 임의로 여러 주차·여러 수행평가 행으로 복제하지 않는다. 주차별 교수·학습 데이터나 여러 지필/수행평가처럼 반복되는 실제 업무 데이터는 `EvaluationPlan` Domain의 반복 구조가 연결되는 시점에 명시적으로 매핑한다.
 

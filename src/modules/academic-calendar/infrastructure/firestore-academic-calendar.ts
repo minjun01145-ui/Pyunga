@@ -2,6 +2,13 @@ import { createHash } from "node:crypto";
 import { Timestamp } from "firebase-admin/firestore";
 
 import { getFirebaseAdminDatabase } from "@/shared/firebase/admin";
+import type {
+  AcademicCalendarEvent,
+  AcademicCalendarEventType,
+  AcademicSemester,
+  SchoolGrade,
+  WrittenExamKind,
+} from "../domain/academic-calendar-event";
 import type { AcademicCalendarSaveInput } from "../application/academic-calendar-save";
 
 export async function saveAcademicCalendar(params: {
@@ -45,6 +52,23 @@ export async function saveAcademicCalendar(params: {
   return params.input.events.length;
 }
 
+export async function loadAcademicCalendar(params: {
+  schoolId: string;
+  academicYear: number;
+}): Promise<AcademicCalendarEvent[]> {
+  const snapshot = await getFirebaseAdminDatabase()
+    .collection("schools")
+    .doc(params.schoolId)
+    .collection("academicYears")
+    .doc(String(params.academicYear))
+    .collection("calendarEvents")
+    .get();
+
+  return snapshot.docs
+    .map((document) => parseStoredAcademicCalendarEvent(params.schoolId, document.id, document.data()))
+    .sort((left, right) => left.startDate.localeCompare(right.startDate));
+}
+
 async function commitInChunks<T>(
   items: readonly T[],
   chunkSize: number,
@@ -73,4 +97,63 @@ function createEventId(event: AcademicCalendarSaveInput["events"][number]): stri
 
 function toTimestamp(date: string): Timestamp {
   return Timestamp.fromDate(new Date(`${date}T00:00:00.000Z`));
+}
+
+function parseStoredAcademicCalendarEvent(
+  schoolId: string,
+  id: string,
+  data: FirebaseFirestore.DocumentData,
+): AcademicCalendarEvent {
+  const academicYear = data.academicYear;
+  const title = data.title;
+  const type = data.type;
+  const semester = data.semester;
+  const startAt = data.startAt;
+  const endAt = data.endAt;
+  const targetGrades = data.targetGrades;
+  const writtenExamKind = data.writtenExamKind;
+
+  if (
+    typeof academicYear !== "number"
+    || !Number.isInteger(academicYear)
+    || typeof title !== "string"
+    || !isAcademicCalendarEventType(type)
+    || !isAcademicSemester(semester)
+    || !(startAt instanceof Timestamp)
+    || (endAt !== undefined && !(endAt instanceof Timestamp))
+    || !Array.isArray(targetGrades)
+    || !targetGrades.every(isSchoolGrade)
+    || (writtenExamKind !== undefined && !isWrittenExamKind(writtenExamKind))
+  ) {
+    throw new Error("Stored academic calendar event is invalid");
+  }
+
+  return {
+    id,
+    schoolId,
+    academicYear,
+    title,
+    type,
+    startDate: startAt.toDate().toISOString().slice(0, 10),
+    ...(endAt instanceof Timestamp ? { endDate: endAt.toDate().toISOString().slice(0, 10) } : {}),
+    semester,
+    targetGrades,
+    ...(writtenExamKind ? { writtenExamKind } : {}),
+  };
+}
+
+function isAcademicCalendarEventType(value: unknown): value is AcademicCalendarEventType {
+  return value === "written_exam" || value === "school_event" || value === "vacation" || value === "other";
+}
+
+function isAcademicSemester(value: unknown): value is AcademicSemester {
+  return value === 1 || value === 2;
+}
+
+function isSchoolGrade(value: unknown): value is SchoolGrade {
+  return value === 1 || value === 2 || value === 3;
+}
+
+function isWrittenExamKind(value: unknown): value is WrittenExamKind {
+  return value === "midterm" || value === "final" || value === "other";
 }

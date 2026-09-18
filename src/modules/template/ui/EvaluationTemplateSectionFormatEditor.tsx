@@ -18,6 +18,7 @@ type EvaluationTemplateSectionFormatEditorProps = {
 };
 
 const formatLabels: Record<EvaluationTemplateSectionFormatType, string> = {
+  title_only: "제목만",
   teaching_learning_table: "교수학습-평가 표",
   outline_text: "개조식 본문",
   achievement_rate_table: "기준 성취율 표",
@@ -67,21 +68,29 @@ export function EvaluationTemplateSectionFormatEditor({
         <div>
           <h2 className="subsection-title">{formatLabels[config.type]}</h2>
           <p className="muted small-copy">
-            {config.type === "outline_text"
+            {config.type === "title_only"
+              ? "본문 없이 제목만 문서에 표시합니다."
+              : config.type === "outline_text"
               ? "번호 단계와 본문 작성 방식을 지정합니다."
               : "표 안에서 직접 글자와 셀 구조를 수정하세요."}
           </p>
         </div>
         <FormatTypeChanger config={config} selectedType={selectedType} onSelectedTypeChange={setSelectedType} onChange={onChange} />
       </div>
-      {config.type === "outline_text" ? (
+      {config.type === "title_only" ? (
+        <p className="small-copy">이 항목은 교과 입력칸 없이 제목만 최종 문서에 표시됩니다.</p>
+      ) : config.type === "outline_text" ? (
         <p className="small-copy">번호 단계: {config.numberingLevels.map(numberingLabel).join(" → ")}</p>
       ) : (
         <>
           <TableLayoutOptions config={config} onChange={onChange} />
+          {config.type === "teaching_learning_table" ? (
+            <TeachingLearningCalendarOptions config={config} onChange={onChange} />
+          ) : null}
           <TableTemplateEditor
             key={config.type}
             document={config.table}
+            allowAcademicCalendarSystemValues={config.type === "teaching_learning_table"}
             onChange={(table) => onChange(withTable(config, table))}
           />
         </>
@@ -133,7 +142,7 @@ function TableLayoutOptions({
   config,
   onChange,
 }: {
-  config: Exclude<EvaluationTemplateSectionConfig, { type: "outline_text" }>;
+  config: Exclude<EvaluationTemplateSectionConfig, { type: "title_only" | "outline_text" }>;
   onChange: (config: EvaluationTemplateSectionConfig) => void;
 }) {
   return (
@@ -173,8 +182,49 @@ function TableLayoutOptions({
   );
 }
 
+function TeachingLearningCalendarOptions({
+  config,
+  onChange,
+}: {
+  config: Extract<EvaluationTemplateSectionConfig, { type: "teaching_learning_table" }>;
+  onChange: (config: EvaluationTemplateSectionConfig) => void;
+}) {
+  return (
+    <div className={styles.tableOptions}>
+      <label className={styles.checkboxField}>
+        <input
+          type="checkbox"
+          checked={config.calendarRows.enabled}
+          onChange={(event) => onChange({
+            ...config,
+            calendarRows: { ...config.calendarRows, enabled: event.target.checked },
+          })}
+        />
+        <span>학사일정 기준으로 교과 입력 행 자동 생성</span>
+      </label>
+      <label className="field">
+        <span>자동 생성 행 기준</span>
+        <select
+          value={config.calendarRows.periodUnit}
+          disabled={!config.calendarRows.enabled}
+          onChange={(event) => onChange({
+            ...config,
+            calendarRows: {
+              ...config.calendarRows,
+              periodUnit: event.target.value === "month" ? "month" : "month_week",
+            },
+          })}
+        >
+          <option value="month">월 단위</option>
+          <option value="month_week">주 단위 (월·주·기간·주요일정 사용 가능)</option>
+        </select>
+      </label>
+    </div>
+  );
+}
+
 function withTable(
-  config: Exclude<EvaluationTemplateSectionConfig, { type: "outline_text" }>,
+  config: Exclude<EvaluationTemplateSectionConfig, { type: "title_only" | "outline_text" }>,
   table: TableTemplateDocument,
 ): EvaluationTemplateSectionConfig {
   switch (config.type) {
@@ -189,6 +239,7 @@ function withTable(
 
 function parseFormatType(value: string): EvaluationTemplateSectionFormatType {
   switch (value) {
+    case "title_only": return "title_only";
     case "outline_text": return "outline_text";
     case "achievement_rate_table": return "achievement_rate_table";
     case "semester_achievement_level_table": return "semester_achievement_level_table";

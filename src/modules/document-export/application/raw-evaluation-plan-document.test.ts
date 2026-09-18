@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import type { AcademicCalendarEvent } from "@/modules/academic-calendar";
 import type { EvaluationPlanDraft } from "@/modules/evaluation-plan";
+import { DEMO_TEACHER_EVALUATION_CONTEXT } from "@/modules/evaluation-plan";
 import {
   createTableTemplateDocument,
   type EvaluationTemplate,
@@ -43,6 +45,32 @@ describe("raw evaluation plan document", () => {
     const view = buildRawEvaluationPlanDocument(template, draft);
     expect(view.sections.map((section) => section.marker)).toEqual(["", "1.", "가.", "1)", "가)", "(1)", "(가)"]);
     expect(view.metadataLine).toBe("2027학년도 · 1학기 · 3학년 · 영어");
+  });
+
+  it("keeps unconfigured and explicit title-only sections distinct in the raw view", () => {
+    const template: EvaluationTemplate = {
+      sections: [
+        {
+          id: "unconfigured",
+          title: "미설정",
+          level: 1,
+          teacherEditableTitle: false,
+          order: 0,
+        },
+        {
+          id: "title-only",
+          title: "제목만",
+          level: 1,
+          teacherEditableTitle: false,
+          order: 1,
+          config: { type: "title_only" },
+        },
+      ],
+    };
+
+    const view = buildRawEvaluationPlanDocument(template, draft);
+    expect(view.sections[0].content.kind).toBe("unconfigured");
+    expect(view.sections[1].content.kind).toBe("none");
   });
 
   it("resolves editable titles and bound table values without mutating the template", () => {
@@ -93,10 +121,11 @@ describe("raw evaluation plan document", () => {
     expect(tableSection.orientation).toBe("landscape");
     expect(tableSection.content.kind).toBe("table");
     if (tableSection.content.kind === "table") {
-      expect(tableSection.content.table.repeatingHeaderRowCount).toBe(1);
+      expect(tableSection.content.table.repeatHeader).toBe(true);
+      expect(tableSection.content.table.headerRows).toHaveLength(1);
       expect(tableSection.content.table.columnWidths).toEqual([120, 180]);
-      expect(tableSection.content.table.rows[1][0].text).toBe("말하기 수행평가");
-      expect(tableSection.content.table.rows[1][1].text).toBe("□ 발표 준비\n□ 상호 평가");
+      expect(tableSection.content.table.bodyGroups[0][0][0].text).toBe("말하기 수행평가");
+      expect(tableSection.content.table.bodyGroups[0][0][1].text).toBe("□ 발표 준비\n□ 상호 평가");
     }
     expect(JSON.stringify(template)).toBe(templateBefore);
   });
@@ -130,7 +159,95 @@ describe("raw evaluation plan document", () => {
     const content = view.sections[0].content;
     expect(content.kind).toBe("table");
     if (content.kind === "table") {
-      expect(content.table.repeatingHeaderRowCount).toBe(0);
+      expect(content.table.repeatHeader).toBe(false);
+      expect(content.table.headerRows).toHaveLength(0);
+      expect(content.table.bodyGroups[0]).toHaveLength(2);
+    }
+  });
+
+  it("expands a teaching-learning body block for academic-calendar rows and resolves system cells", () => {
+    const table = createTableTemplateDocument([
+      [
+        { kind: "text", text: "월", header: true },
+        { kind: "text", text: "주", header: true },
+        { kind: "text", text: "기간", header: true },
+        { kind: "text", text: "단원", header: true },
+        { kind: "text", text: "주요 학사 일정", header: true },
+      ],
+      [
+        { kind: "input", fieldKey: "month", fieldLabel: "월", inputKind: "text", inputSource: "system", systemValue: "academic_calendar.month" },
+        { kind: "input", fieldKey: "week", fieldLabel: "주", inputKind: "text", inputSource: "system", systemValue: "academic_calendar.week" },
+        { kind: "input", fieldKey: "range", fieldLabel: "기간", inputKind: "text", inputSource: "system", systemValue: "academic_calendar.date_range" },
+        { kind: "input", fieldKey: "unitName", fieldLabel: "단원", inputKind: "text", inputSource: "teacher" },
+        { kind: "input", fieldKey: "events", fieldLabel: "주요 학사 일정", inputKind: "multiline", inputSource: "system", systemValue: "academic_calendar.events" },
+      ],
+    ]);
+    const template: EvaluationTemplate = {
+      sections: [{
+        id: "teaching",
+        title: "교수학습 운영 계획",
+        level: 1,
+        teacherEditableTitle: false,
+        order: 0,
+        config: {
+          type: "teaching_learning_table",
+          layout: { orientation: "landscape", repeatHeader: true },
+          calendarRows: { enabled: true, periodUnit: "month_week" },
+          table,
+        },
+      }],
+    };
+    const calendarEvents: AcademicCalendarEvent[] = [
+      {
+        id: "opening",
+        schoolId: "development-school",
+        academicYear: 2026,
+        title: "입학식, 1학기 개학일",
+        type: "school_event",
+        semester: 1,
+        startDate: "2026-03-03",
+        targetGrades: [1, 2, 3],
+      },
+      {
+        id: "later",
+        schoolId: "development-school",
+        academicYear: 2026,
+        title: "전국연합",
+        type: "school_event",
+        semester: 1,
+        startDate: "2026-03-24",
+        targetGrades: [3],
+      },
+    ];
+    const calendarDraft: EvaluationPlanDraft = {
+      ...draft,
+      academicYear: "2026",
+      sections: {
+        teaching: {
+          fields: {},
+          rows: {
+            "2026-03-w1": { fields: { unitName: "오리엔테이션" } },
+          },
+        },
+      },
+    };
+
+    const view = buildRawEvaluationPlanDocument(template, calendarDraft, {
+      teacherContext: DEMO_TEACHER_EVALUATION_CONTEXT,
+      calendarEvents,
+    });
+    const content = view.sections[0].content;
+    expect(content.kind).toBe("table");
+    if (content.kind === "table") {
+      expect(content.table.headerRows).toHaveLength(1);
+      expect(content.table.bodyGroups[0][0].map((cell) => cell.text)).toEqual([
+        "3",
+        "1",
+        "3/2~3/8",
+        "오리엔테이션",
+        "3/3 입학식, 1학기 개학일",
+      ]);
+      expect(content.table.bodyGroups.length).toBeGreaterThan(1);
     }
   });
 });

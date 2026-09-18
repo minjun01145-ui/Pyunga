@@ -1,4 +1,5 @@
 import type {
+  RawEvaluationPlanCellView,
   RawEvaluationPlanDocumentView,
   RawEvaluationPlanSectionView,
   RawEvaluationPlanTableView,
@@ -37,6 +38,9 @@ function RawSection({ section }: { section: RawEvaluationPlanSectionView }) {
         <span className={styles.headingText}>{section.title}</span>
       </div>
       <div className={`${styles.sectionBody} ${section.content.kind === "table" ? styles.tableBody : ""}`}>
+        {section.content.kind === "unconfigured" ? (
+          <p>입력 양식이 설정되지 않은 항목입니다.</p>
+        ) : null}
         {section.content.kind === "text" ? (
           <div className={styles.outlineText}>{section.content.text}</div>
         ) : null}
@@ -49,9 +53,6 @@ function RawSection({ section }: { section: RawEvaluationPlanSectionView }) {
 }
 
 function RawTable({ table }: { table: RawEvaluationPlanTableView }) {
-  const headerRows = table.rows.slice(0, table.repeatingHeaderRowCount);
-  const bodyRows = table.rows.slice(table.repeatingHeaderRowCount);
-
   return (
     <div className={styles.tableFrame}>
       <table className={styles.rawTable}>
@@ -62,20 +63,27 @@ function RawTable({ table }: { table: RawEvaluationPlanTableView }) {
             ))}
           </colgroup>
         ) : null}
-        {headerRows.length > 0 ? (
+        {table.headerRows.length > 0 && table.repeatHeader ? (
           <thead>
-            {headerRows.map((row, index) => <RawRow key={`head-${index}`} row={row} />)}
+            {table.headerRows.map((row, index) => <RawRow key={`head-${index}`} row={row} />)}
           </thead>
         ) : null}
-        <tbody>
-          {bodyRows.map((row, index) => <RawRow key={`body-${index}`} row={row} />)}
-        </tbody>
+        {table.headerRows.length > 0 && !table.repeatHeader ? (
+          <tbody className={styles.headerBlock}>
+            {table.headerRows.map((row, index) => <RawRow key={`head-body-${index}`} row={row} />)}
+          </tbody>
+        ) : null}
+        {table.bodyGroups.map((group, groupIndex) => (
+          <tbody className={styles.rowBlock} key={`body-group-${groupIndex}`}>
+            {group.map((row, rowIndex) => <RawRow key={`body-${groupIndex}-${rowIndex}`} row={row} />)}
+          </tbody>
+        ))}
       </table>
     </div>
   );
 }
 
-function RawRow({ row }: { row: RawEvaluationPlanTableView["rows"][number] }) {
+function RawRow({ row }: { row: RawEvaluationPlanCellView[] }) {
   return (
     <tr className={styles.tableRow}>
       {row.map((cell) => {

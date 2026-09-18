@@ -9,6 +9,13 @@ export type TableTemplateInputKind =
 
 export type TableTemplateInputSource = "system" | "teacher" | "custom";
 
+export type TableTemplateSystemValue =
+  | "academic_calendar.period"
+  | "academic_calendar.month"
+  | "academic_calendar.week"
+  | "academic_calendar.date_range"
+  | "academic_calendar.events";
+
 export type TableTemplateCellAttrs = {
   colspan: number;
   rowspan: number;
@@ -17,6 +24,7 @@ export type TableTemplateCellAttrs = {
   fieldLabel?: string;
   inputKind?: TableTemplateInputKind;
   inputSource?: TableTemplateInputSource;
+  systemValue?: TableTemplateSystemValue;
   required?: boolean;
 };
 
@@ -58,6 +66,7 @@ export type TableTemplateCellDraft = {
   fieldLabel?: string;
   inputKind?: TableTemplateInputKind;
   inputSource?: TableTemplateInputSource;
+  systemValue?: TableTemplateSystemValue;
   required?: boolean;
   header?: boolean;
   colspan?: number;
@@ -113,6 +122,15 @@ export function getTableTemplateFieldKeys(document: TableTemplateDocument): stri
   return keys;
 }
 
+export function getTableTemplateLeadingHeaderRowCount(document: TableTemplateDocument): number {
+  let count = 0;
+  for (const row of document.content[0].content) {
+    if (!row.content.every((cell) => cell.type === "tableHeader")) break;
+    count += 1;
+  }
+  return count;
+}
+
 export function getTableTemplateColumnWidths(document: TableTemplateDocument): Array<number | null> {
   const widths: Array<number | null> = [];
   for (const cell of document.content[0].content[0].content) {
@@ -136,6 +154,9 @@ function createCellFromDraft(draft: TableTemplateCellDraft): TableTemplateCellNo
       fieldLabel: draft.fieldLabel?.trim() || "입력",
       inputKind: draft.inputKind ?? "text",
       inputSource: draft.inputSource ?? "teacher",
+      ...((draft.inputSource ?? "teacher") === "system" && draft.systemValue
+        ? { systemValue: draft.systemValue }
+        : {}),
       ...(draft.required === undefined ? {} : { required: draft.required }),
     } : {}),
   };
@@ -269,6 +290,7 @@ function parseCellNode(value: unknown): TableTemplateCellNode | undefined {
   const fieldLabel = readOptionalText(value.attrs.fieldLabel, 120);
   const inputKind = parseInputKind(value.attrs.inputKind);
   const inputSource = parseInputSource(value.attrs.inputSource);
+  const systemValue = parseSystemValue(value.attrs.systemValue);
   const required = value.attrs.required;
   if (fieldKey) {
     if (
@@ -279,11 +301,14 @@ function parseCellNode(value: unknown): TableTemplateCellNode | undefined {
     ) return undefined;
     if (value.attrs.inputKind !== undefined && value.attrs.inputKind !== null && inputKind === undefined) return undefined;
     if (value.attrs.inputSource !== undefined && value.attrs.inputSource !== null && inputSource === undefined) return undefined;
+    if (value.attrs.systemValue !== undefined && value.attrs.systemValue !== null && systemValue === undefined) return undefined;
     if (required !== undefined && required !== null && typeof required !== "boolean") return undefined;
+    if (systemValue && inputSource !== "system") return undefined;
   } else if (
     (value.attrs.fieldLabel !== undefined && value.attrs.fieldLabel !== null)
     || (value.attrs.inputKind !== undefined && value.attrs.inputKind !== null)
     || (value.attrs.inputSource !== undefined && value.attrs.inputSource !== null)
+    || (value.attrs.systemValue !== undefined && value.attrs.systemValue !== null)
     || (value.attrs.required !== undefined && value.attrs.required !== null)
   ) {
     return undefined;
@@ -313,6 +338,7 @@ function parseCellNode(value: unknown): TableTemplateCellNode | undefined {
         ...(fieldLabel ? { fieldLabel } : {}),
         ...(inputKind ? { inputKind } : {}),
         ...(inputSource ? { inputSource } : {}),
+        ...(systemValue ? { systemValue } : {}),
         ...(typeof required === "boolean" ? { required } : {}),
       } : {}),
     },
@@ -402,6 +428,17 @@ function parseInputSource(value: unknown): TableTemplateInputSource | undefined 
   if (value === "teacher") return "teacher";
   if (value === "custom") return "custom";
   return undefined;
+}
+
+function parseSystemValue(value: unknown): TableTemplateSystemValue | undefined {
+  switch (value) {
+    case "academic_calendar.period": return "academic_calendar.period";
+    case "academic_calendar.month": return "academic_calendar.month";
+    case "academic_calendar.week": return "academic_calendar.week";
+    case "academic_calendar.date_range": return "academic_calendar.date_range";
+    case "academic_calendar.events": return "academic_calendar.events";
+    default: return undefined;
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

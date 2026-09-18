@@ -20,7 +20,7 @@ export async function requireAuthenticatedProfile(
     return {
       id: "development-user",
       schoolId: "development-school",
-      displayName: "개발 사용자",
+      displayName: "테스트 사용자",
       role: "school_admin",
       active: true,
     };

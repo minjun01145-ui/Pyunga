@@ -3,6 +3,16 @@
   gap: 16px;
 }
 
+.teacherContextLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
 .teacherSection {
   min-width: 0;
 }
@@ -67,6 +77,15 @@
 
 .fixedCellText {
   white-space: pre-wrap;
+}
+
+.systemCellText {
+  display: block;
+  min-height: 34px;
+  padding: 4px 2px;
+  white-space: pre-wrap;
+  color: #333333;
+  background: #f6f6f6;
 }
 
 .tableInput,
