@@ -3,18 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
-import type {
-  EvaluationTemplateImportResult,
-  EvaluationTemplateRepeatableItemSample,
-} from "../application/evaluation-template-import";
+import type { EvaluationTemplateImportResult } from "../application/evaluation-template-import";
 import {
   getEvaluationTemplateIssues,
   type EvaluationTemplate,
-  type EvaluationTemplateSection,
   type EvaluationTemplateSource,
 } from "../domain/evaluation-template";
 import { EvaluationTemplateImportPanel } from "./EvaluationTemplateImportPanel";
-import { EvaluationTemplateRepeatableSamples } from "./EvaluationTemplateRepeatableSamples";
 import { EvaluationTemplateSectionEditor } from "./EvaluationTemplateSectionEditor";
 import styles from "./EvaluationTemplateSectionWorkspace.module.css";
 
@@ -30,7 +25,6 @@ type ApiErrorResponse = { error?: string };
 
 export function EvaluationTemplateSectionWorkspace() {
   const [template, setTemplate] = useState<EvaluationTemplate | null>(null);
-  const [repeatableItemSamples, setRepeatableItemSamples] = useState<EvaluationTemplateRepeatableItemSample[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -77,7 +71,6 @@ export function EvaluationTemplateSectionWorkspace() {
     setError(null);
     setSaveMessage(null);
     setWarnings([]);
-    setRepeatableItemSamples([]);
 
     const formData = new FormData();
     formData.set("file", file);
@@ -98,7 +91,6 @@ export function EvaluationTemplateSectionWorkspace() {
         sections: imported.sections,
         source: imported.source,
       });
-      setRepeatableItemSamples(imported.repeatableItemSamples);
       setWarnings(imported.warnings);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "평가계획 분석에 실패했습니다.");
@@ -128,7 +120,6 @@ export function EvaluationTemplateSectionWorkspace() {
             id: section.id,
             title: section.title,
             level: section.level,
-            childrenMode: section.childrenMode,
             sourcePage: section.sourcePage,
           })),
           source: template.source,
@@ -151,20 +142,6 @@ export function EvaluationTemplateSectionWorkspace() {
   function handleTemplateChange(nextTemplate: EvaluationTemplate) {
     setTemplate(nextTemplate);
     setSaveMessage(null);
-  }
-
-  function handleExcludedChildren(
-    parent: EvaluationTemplateSection,
-    children: readonly EvaluationTemplateSection[],
-  ) {
-    setRepeatableItemSamples((current) => mergeRepeatableSamples(
-      current,
-      children.map((child) => ({
-        parentSectionId: parent.id,
-        title: child.title,
-        ...(child.sourcePage ? { sourcePage: child.sourcePage } : {}),
-      })),
-    ));
   }
 
   return (
@@ -197,15 +174,9 @@ export function EvaluationTemplateSectionWorkspace() {
             </div>
           ) : null}
 
-          <EvaluationTemplateRepeatableSamples
-            samples={repeatableItemSamples}
-            sections={template.sections}
-          />
-
           <EvaluationTemplateSectionEditor
             template={template}
             onChange={handleTemplateChange}
-            onExcludedChildren={handleExcludedChildren}
           />
 
           {issues.length > 0 ? (
@@ -225,17 +196,6 @@ export function EvaluationTemplateSectionWorkspace() {
       ) : null}
     </div>
   );
-}
-
-function mergeRepeatableSamples(
-  current: readonly EvaluationTemplateRepeatableItemSample[],
-  incoming: readonly EvaluationTemplateRepeatableItemSample[],
-): EvaluationTemplateRepeatableItemSample[] {
-  const unique = new Map<string, EvaluationTemplateRepeatableItemSample>();
-  for (const sample of [...current, ...incoming]) {
-    unique.set(`${sample.parentSectionId}|${sample.title}|${sample.sourcePage ?? ""}`, sample);
-  }
-  return [...unique.values()];
 }
 
 function formatPages(pages: readonly number[]): string {

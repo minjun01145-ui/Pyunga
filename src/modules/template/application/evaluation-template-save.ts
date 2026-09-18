@@ -10,8 +10,15 @@ import {
 const sectionSchema = z.object({
   id: z.string().trim().min(1).max(100),
   title: z.string().trim().min(1).max(120),
-  level: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-  childrenMode: z.enum(["fixed", "repeatable"]).optional(),
+  level: z.union([
+    z.literal(1),
+    z.literal(2),
+    z.literal(3),
+    z.literal(4),
+    z.literal(5),
+    z.literal(6),
+    z.literal(7),
+  ]),
   sourcePage: z.number().int().min(1).max(60).optional(),
 });
 
@@ -35,7 +42,6 @@ export function parseEvaluationTemplateSaveInput(value: unknown): EvaluationTemp
     id: section.id,
     title: section.title,
     level: section.level,
-    childrenMode: section.childrenMode,
     ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
   }));
 

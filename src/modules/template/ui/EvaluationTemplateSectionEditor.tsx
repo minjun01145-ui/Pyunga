@@ -2,13 +2,10 @@
 
 import {
   canMoveEvaluationTemplateSection,
-  getEvaluationTemplateDirectChildren,
   moveEvaluationTemplateSection,
   normalizeEvaluationTemplateSections,
   removeEvaluationTemplateSection,
-  setEvaluationTemplateSectionChildrenMode,
   type EvaluationTemplate,
-  type EvaluationTemplateChildrenMode,
   type EvaluationTemplateSection,
   type EvaluationTemplateSectionInput,
   type EvaluationTemplateSectionLevel,
@@ -18,29 +15,23 @@ import styles from "./EvaluationTemplateSectionWorkspace.module.css";
 type EvaluationTemplateSectionEditorProps = {
   template: EvaluationTemplate;
   onChange: (template: EvaluationTemplate) => void;
-  onExcludedChildren: (
-    parent: EvaluationTemplateSection,
-    children: readonly EvaluationTemplateSection[],
-  ) => void;
 };
 
 const levelLabels: Record<EvaluationTemplateSectionLevel, string> = {
-  1: "대분류",
-  2: "중분류",
-  3: "소분류",
+  1: "대분류(제목)",
+  2: "1. 단위",
+  3: "가. 단위",
+  4: "1) 단위",
+  5: "가) 단위",
+  6: "(1) 단위",
+  7: "(가) 단위",
 };
 
-const childrenModeLabels: Record<EvaluationTemplateChildrenMode, string> = {
-  fixed: "공통 하위 항목",
-  repeatable: "교과별 반복 항목",
-};
-
-const levels: EvaluationTemplateSectionLevel[] = [1, 2, 3];
+const levels: EvaluationTemplateSectionLevel[] = [1, 2, 3, 4, 5, 6, 7];
 
 export function EvaluationTemplateSectionEditor({
   template,
   onChange,
-  onExcludedChildren,
 }: EvaluationTemplateSectionEditorProps) {
   const titleById = new Map(template.sections.map((section) => [section.id, section.title]));
 
@@ -58,33 +49,11 @@ export function EvaluationTemplateSectionEditor({
     onChange({ ...template, sections: removeEvaluationTemplateSection(template.sections, index) });
   }
 
-  function changeChildrenMode(index: number, childrenMode: EvaluationTemplateChildrenMode) {
-    const section = template.sections[index];
-    if (section.level === 3 || section.childrenMode === childrenMode) return;
-
-    if (childrenMode === "repeatable") {
-      const directChildren = getEvaluationTemplateDirectChildren(template.sections, section.id);
-      if (directChildren.length > 0) {
-        const confirmed = window.confirm(
-          "교과별 반복 항목으로 바꾸면 현재 공통 하위 항목은 학교 양식에서 제외됩니다. 계속할까요?",
-        );
-        if (!confirmed) return;
-        onExcludedChildren(section, directChildren);
-      }
-    }
-
-    onChange({
-      ...template,
-      sections: setEvaluationTemplateSectionChildrenMode(template.sections, index, childrenMode),
-    });
-  }
-
   function addSection() {
     const nextInput: EvaluationTemplateSectionInput = {
       id: createSectionId(),
       title: "새 항목",
       level: 1,
-      childrenMode: "fixed",
     };
     onChange({
       ...template,
@@ -94,17 +63,6 @@ export function EvaluationTemplateSectionEditor({
 
   return (
     <>
-      <div className={styles.modeGuide}>
-        <div>
-          <strong>공통 하위 항목</strong>
-          <span>모든 교과가 같은 제목 구조를 사용합니다. 예: 학기단위 성취수준</span>
-        </div>
-        <div>
-          <strong>교과별 반복 항목</strong>
-          <span>항목 이름과 개수는 교과마다 달라집니다. 예: 수행평가별 평가명</span>
-        </div>
-      </div>
-
       <div className={styles.sectionList}>
         {template.sections.map((section, index) => (
           <div
@@ -132,23 +90,6 @@ export function EvaluationTemplateSectionEditor({
                 value={section.title}
                 onChange={(changeEvent) => updateSection(index, { title: changeEvent.target.value })}
               />
-            </label>
-
-            <label className={`field ${styles.modeField}`}>
-              <span>하위 구성</span>
-              {section.level === 3 ? (
-                <span className={styles.readOnlyValue}>하위 항목 없음</span>
-              ) : (
-                <select
-                  value={section.childrenMode}
-                  onChange={(changeEvent) =>
-                    changeChildrenMode(index, parseChildrenMode(changeEvent.target.value))
-                  }
-                >
-                  <option value="fixed">{childrenModeLabels.fixed}</option>
-                  <option value="repeatable">{childrenModeLabels.repeatable}</option>
-                </select>
-              )}
             </label>
 
             <div className={styles.metaField}>
@@ -196,19 +137,20 @@ function toSectionInput(section: EvaluationTemplateSection): EvaluationTemplateS
     id: section.id,
     title: section.title,
     level: section.level,
-    childrenMode: section.childrenMode,
     ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
   };
 }
 
 function parseSectionLevel(value: string): EvaluationTemplateSectionLevel {
-  if (value === "2") return 2;
-  if (value === "3") return 3;
-  return 1;
-}
-
-function parseChildrenMode(value: string): EvaluationTemplateChildrenMode {
-  return value === "repeatable" ? "repeatable" : "fixed";
+  switch (value) {
+    case "2": return 2;
+    case "3": return 3;
+    case "4": return 4;
+    case "5": return 5;
+    case "6": return 6;
+    case "7": return 7;
+    default: return 1;
+  }
 }
 
 function createSectionId(): string {

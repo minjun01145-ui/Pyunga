@@ -51,6 +51,20 @@
 
 학교는 Section을 추가/삭제/이름 변경/순서 변경할 수 있다.
 
+Section 제목 단계는 국내 공문서에서 익숙한 번호 체계를 따라 최대 7단계로 제한한다.
+
+```text
+대분류(제목)
+  1. 단위
+    가. 단위
+      1) 단위
+        가) 단위
+          (1) 단위
+            (가) 단위
+```
+
+저장 데이터에는 번호 문자열을 제목에 중복 보관하지 않고 `level` 값으로 계층을 표현한다. PDF import는 원문의 번호 표기와 포함 관계를 바탕으로 이 단계의 초안을 제안하며, 평가계 담당자가 최종 단계와 순서를 수정할 수 있다.
+
 권장 개념 모델:
 
 ```ts
@@ -68,6 +82,8 @@ type DocumentSectionTemplate = {
   id: string;
   type: DocumentSectionType;
   title: string;
+  level: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  parentId?: string;
   order: number;
   enabled: boolean;
   layout: {

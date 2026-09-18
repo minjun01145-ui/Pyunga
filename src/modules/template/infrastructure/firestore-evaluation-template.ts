@@ -4,7 +4,6 @@ import { getFirebaseAdminDatabase } from "@/shared/firebase/admin";
 import {
   normalizeEvaluationTemplateSections,
   type EvaluationTemplate,
-  type EvaluationTemplateChildrenMode,
   type EvaluationTemplateSectionInput,
   type EvaluationTemplateSource,
 } from "../domain/evaluation-template";
@@ -24,7 +23,6 @@ export async function saveEvaluationTemplate(params: {
       title: section.title,
       level: section.level,
       order: section.order,
-      childrenMode: section.childrenMode,
       ...(section.parentId ? { parentId: section.parentId } : {}),
       ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
     })),
@@ -76,7 +74,6 @@ function parseStoredSection(value: unknown): EvaluationTemplateSectionInput {
   const title = value.title;
   const level = value.level;
   const sourcePage = value.sourcePage;
-  const childrenMode = parseStoredChildrenMode(value.childrenMode);
 
   if (
     typeof id !== "string" ||
@@ -85,8 +82,7 @@ function parseStoredSection(value: unknown): EvaluationTemplateSectionInput {
     typeof title !== "string" ||
     title.length === 0 ||
     title.length > 120 ||
-    (level !== 1 && level !== 2 && level !== 3) ||
-    childrenMode === null ||
+    (level !== 1 && level !== 2 && level !== 3 && level !== 4 && level !== 5 && level !== 6 && level !== 7) ||
     (sourcePage !== undefined &&
       (typeof sourcePage !== "number" || !Number.isInteger(sourcePage) || sourcePage < 1 || sourcePage > 60))
   ) {
@@ -97,15 +93,8 @@ function parseStoredSection(value: unknown): EvaluationTemplateSectionInput {
     id,
     title,
     level,
-    childrenMode,
     ...(sourcePage === undefined ? {} : { sourcePage: Number(sourcePage) }),
   };
-}
-
-function parseStoredChildrenMode(value: unknown): EvaluationTemplateChildrenMode | null {
-  if (value === undefined) return "fixed";
-  if (value === "fixed" || value === "repeatable") return value;
-  return null;
 }
 
 function parseStoredSource(value: unknown): EvaluationTemplateSource {

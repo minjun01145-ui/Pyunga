@@ -34,57 +34,13 @@
   margin-bottom: 0;
 }
 
-.modeGuide {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin: 14px 0;
-}
-
-.modeGuide > div {
-  display: grid;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.modeGuide span {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.repeatableSamples {
-  margin-bottom: 14px;
-}
-
-.repeatableSamples h3 {
-  margin: 0 0 6px;
-  font-size: 15px;
-}
-
-.repeatableSamples p {
-  margin: 0;
-}
-
-.sampleGroups {
-  display: grid;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.sampleGroup ul {
-  margin: 4px 0 0;
-  padding-left: 20px;
-}
-
 .sectionList {
   border-top: 1px solid var(--border);
 }
 
 .sectionRow {
   display: grid;
-  grid-template-columns: 112px minmax(220px, 1fr) 168px minmax(140px, 0.55fr) 64px auto;
+  grid-template-columns: 132px minmax(220px, 1fr) minmax(140px, 0.55fr) 64px auto;
   align-items: end;
   gap: 12px;
   padding: 12px 0;
@@ -99,18 +55,25 @@
   padding-left: 36px;
 }
 
-.levelField select,
-.titleField input,
-.modeField select {
-  width: 100%;
+.level4 {
+  padding-left: 54px;
 }
 
-.readOnlyValue {
-  display: flex;
-  align-items: center;
-  min-height: 38px;
-  color: var(--muted);
-  font-size: 14px;
+.level5 {
+  padding-left: 72px;
+}
+
+.level6 {
+  padding-left: 90px;
+}
+
+.level7 {
+  padding-left: 108px;
+}
+
+.levelField select,
+.titleField input {
+  width: 100%;
 }
 
 .metaField {
@@ -155,23 +118,26 @@
 
 @media (max-width: 1120px) {
   .sectionRow {
-    grid-template-columns: 110px minmax(0, 1fr) 168px;
+    grid-template-columns: 132px minmax(0, 1fr);
   }
 
   .metaField,
   .rowActions {
-    grid-column: 2 / span 2;
+    grid-column: 2;
   }
 
   .level2,
-  .level3 {
+  .level3,
+  .level4,
+  .level5,
+  .level6,
+  .level7 {
     padding-left: 12px;
   }
 }
 
 @media (max-width: 800px) {
   .importForm,
-  .modeGuide,
   .sectionRow {
     grid-template-columns: 1fr;
   }
@@ -186,7 +152,11 @@
   }
 
   .level2,
-  .level3 {
+  .level3,
+  .level4,
+  .level5,
+  .level6,
+  .level7 {
     padding-left: 0;
   }
 }

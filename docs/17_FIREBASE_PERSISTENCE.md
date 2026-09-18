@@ -38,7 +38,7 @@ schools/{schoolId}/evaluationTemplates/current
 schools/{schoolId}/users/{uid}/performanceAssessmentDrafts/{assessmentId}
 ```
 
-학사일정은 동일한 일정의 중복 저장을 줄이기 위해 핵심 필드에서 결정적으로 만든 ID를 사용한다. 평가계획 양식은 학교 단위의 현재 Template을 `evaluationTemplates/current`에 저장하고, 문서 Section 구조, 하위 구성 방식(`fixed`/`repeatable`), 원본 PDF 메타데이터만 보관한다. `repeatable` Section에서 전년도 PDF로 발견한 특정 교과의 실제 수행평가명은 Template에 저장하지 않는다. 수행평가 프로토타입은 전체 `EvaluationPlan`이 아직 구현되지 않았으므로 공식 평가계획 문서가 아니라 사용자 개인 초안으로 저장한다.
+학사일정은 동일한 일정의 중복 저장을 줄이기 위해 핵심 필드에서 결정적으로 만든 ID를 사용한다. 평가계획 양식은 학교 단위의 현재 Template을 `evaluationTemplates/current`에 저장하고, 문서 Section의 제목·7단계 계층·순서·상위 항목 관계와 원본 PDF 메타데이터를 보관한다. 수행평가 프로토타입은 전체 `EvaluationPlan`이 아직 구현되지 않았으므로 공식 평가계획 문서가 아니라 사용자 개인 초안으로 저장한다.
 
 ## 최초 운영 준비
 
