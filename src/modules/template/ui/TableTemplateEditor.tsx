@@ -93,7 +93,6 @@ export function TableTemplateEditor({ document, onChange }: TableTemplateEditorP
           resizable: true,
           lastColumnResizable: true,
           cellMinWidth: 56,
-          HTMLAttributes: { class: "pyunga-template-table" },
         },
       }),
       TableFieldAttributes,

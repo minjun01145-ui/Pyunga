@@ -78,39 +78,46 @@
   overflow-x: visible;
 }
 
-.editorContent :global(table.pyunga-template-table) {
+.editorContent :global(.ProseMirror) table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
+  border: 1px solid #666;
 }
 
-.editorContent :global(table.pyunga-template-table td),
-.editorContent :global(table.pyunga-template-table th) {
+.editorContent :global(.ProseMirror) td,
+.editorContent :global(.ProseMirror) th {
   position: relative;
+  box-sizing: border-box;
   min-width: 56px;
   height: 46px;
   padding: 8px 9px;
-  border: 1px solid #777;
+  border: 1px solid #666;
   vertical-align: middle;
   line-height: 1.45;
 }
 
-.editorContent :global(table.pyunga-template-table th) {
+.editorContent :global(.ProseMirror) th {
   background: #f3f3f3;
   font-weight: 600;
   text-align: center;
 }
 
-.editorContent :global(table.pyunga-template-table p) {
+.editorContent :global(.ProseMirror) td > *,
+.editorContent :global(.ProseMirror) th > * {
+  margin: 0;
+}
+
+.editorContent :global(.ProseMirror) p {
   margin: 0;
   min-height: 1.4em;
 }
 
-.editorContent :global(table.pyunga-template-table td[data-field-key]) {
+.editorContent :global(.ProseMirror) td[data-field-key] {
   background: #fafafa;
 }
 
-.editorContent :global(table.pyunga-template-table td[data-field-key]::before) {
+.editorContent :global(.ProseMirror) td[data-field-key]::before {
   content: attr(data-field-label);
   position: absolute;
   left: 7px;
@@ -121,7 +128,7 @@
   pointer-events: none;
 }
 
-.editorContent :global(table.pyunga-template-table td[data-field-key]::after) {
+.editorContent :global(.ProseMirror) td[data-field-key]::after {
   content: "교과 입력";
   position: absolute;
   right: 4px;
@@ -136,11 +143,11 @@
   pointer-events: none;
 }
 
-.editorContent :global(table.pyunga-template-table td[data-field-key] p) {
+.editorContent :global(.ProseMirror) td[data-field-key] p {
   padding-top: 11px;
 }
 
-.editorContent :global(table.pyunga-template-table .selectedCell::after) {
+.editorContent :global(.ProseMirror) :global(.selectedCell)::after {
   content: "";
   position: absolute;
   inset: 0;
