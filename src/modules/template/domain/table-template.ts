@@ -113,6 +113,16 @@ export function getTableTemplateFieldKeys(document: TableTemplateDocument): stri
   return keys;
 }
 
+export function getTableTemplateColumnWidths(document: TableTemplateDocument): Array<number | null> {
+  const widths: Array<number | null> = [];
+  for (const cell of document.content[0].content[0].content) {
+    for (let index = 0; index < cell.attrs.colspan; index += 1) {
+      widths.push(cell.attrs.colwidth?.[index] ?? null);
+    }
+  }
+  return widths;
+}
+
 function createCellFromDraft(draft: TableTemplateCellDraft): TableTemplateCellNode {
   const text = draft.kind === "input" ? "" : draft.text ?? "";
   const fieldKey = draft.kind === "input" && !draft.header ? draft.fieldKey : undefined;

@@ -1,0 +1,41 @@
+.previewWorkspace {
+  display: grid;
+  gap: 20px;
+}
+
+.previewToolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.previewToolbar h1,
+.previewToolbar p {
+  margin-top: 0;
+}
+
+.previewToolbar p {
+  margin-bottom: 0;
+}
+
+.previewActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.previewActions :global(.secondary-button) {
+  display: inline-block;
+  margin: 0;
+  text-decoration: none;
+}
+
+@media print {
+  .previewToolbar {
+    display: none;
+  }
+}

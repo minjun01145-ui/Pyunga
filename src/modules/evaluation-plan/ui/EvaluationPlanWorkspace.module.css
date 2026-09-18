@@ -1,0 +1,116 @@
+.workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.teacherSection {
+  min-width: 0;
+}
+
+.teacherSection[data-level="2"] {
+  margin-left: 8px;
+}
+
+.teacherSection[data-level="3"] {
+  margin-left: 16px;
+}
+
+.teacherSection[data-level="4"],
+.teacherSection[data-level="5"],
+.teacherSection[data-level="6"],
+.teacherSection[data-level="7"] {
+  margin-left: 24px;
+}
+
+.sectionHeadingRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.sectionHeading {
+  margin: 0;
+  font-size: 18px;
+}
+
+.titleField {
+  max-width: 720px;
+  margin-bottom: 16px;
+}
+
+.tableScroll {
+  overflow-x: auto;
+}
+
+.inputTable {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.inputTable th,
+.inputTable td {
+  min-width: 80px;
+  padding: 7px;
+  border: 1px solid #8d8d8d;
+  vertical-align: top;
+}
+
+.inputTable th {
+  background: #f3f3f3;
+  font-weight: 650;
+  text-align: center;
+}
+
+.fixedCellText {
+  white-space: pre-wrap;
+}
+
+.tableInput,
+.tableTextarea {
+  width: 100%;
+  border: 1px solid #bcbcbc;
+  background: #ffffff;
+  padding: 7px 8px;
+  color: inherit;
+}
+
+.tableTextarea {
+  min-height: 74px;
+  resize: vertical;
+}
+
+.tableInput[readonly],
+.tableTextarea[readonly] {
+  background: #f4f4f4;
+  color: #666666;
+}
+
+.savePanel {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+}
+
+.saveButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.saveButtons button {
+  margin: 0;
+}
+
+@media (max-width: 800px) {
+  .teacherSection[data-level] {
+    margin-left: 0;
+  }
+
+  .savePanel {
+    position: static;
+  }
+}

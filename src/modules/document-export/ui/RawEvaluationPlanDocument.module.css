@@ -1,0 +1,190 @@
+.document {
+  width: min(100%, 297mm);
+  margin: 0 auto;
+  padding: 16mm 18mm 20mm;
+  background: #ffffff;
+  color: #111111;
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+}
+
+.documentHeader {
+  margin-bottom: 10mm;
+  text-align: center;
+}
+
+.documentHeader h1 {
+  margin: 0;
+  font-size: 20pt;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.documentHeader p {
+  margin: 3mm 0 0;
+  font-size: 10.5pt;
+}
+
+.documentSection {
+  --section-indent: 0mm;
+  margin: 0 0 5mm;
+}
+
+.orientationPortrait {
+  page: rawPortrait;
+}
+
+.orientationLandscape {
+  page: rawLandscape;
+}
+
+.sectionHeading {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 1.5mm;
+  margin-left: var(--section-indent);
+  break-after: avoid-page;
+  page-break-after: avoid;
+  font-weight: 650;
+}
+
+.headingMarker {
+  min-width: 7mm;
+  text-align: left;
+}
+
+.headingText {
+  min-width: 0;
+}
+
+.sectionBody {
+  margin-top: 2.5mm;
+  margin-left: calc(var(--section-indent) + 8.5mm);
+}
+
+.tableBody {
+  margin-left: 0;
+}
+
+.level1 {
+  --section-indent: 0mm;
+  margin-top: 8mm;
+}
+
+.level1 .sectionHeading {
+  display: block;
+  font-size: 16pt;
+  font-weight: 700;
+}
+
+.level1 .sectionBody {
+  margin-left: 0;
+}
+
+.level2 {
+  --section-indent: 0mm;
+}
+
+.level2 .sectionHeading {
+  font-size: 13.5pt;
+}
+
+.level3 {
+  --section-indent: 6mm;
+}
+
+.level3 .sectionHeading {
+  font-size: 12pt;
+}
+
+.level4 {
+  --section-indent: 12mm;
+}
+
+.level4 .sectionHeading,
+.level5 .sectionHeading,
+.level6 .sectionHeading,
+.level7 .sectionHeading {
+  font-size: 11pt;
+}
+
+.level5 {
+  --section-indent: 18mm;
+}
+
+.level6 {
+  --section-indent: 24mm;
+}
+
+.level7 {
+  --section-indent: 30mm;
+}
+
+.outlineText {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tableFrame {
+  width: 100%;
+  overflow: visible;
+}
+
+.rawTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 9pt;
+  line-height: 1.45;
+}
+
+.rawTable thead {
+  display: table-header-group;
+}
+
+.rawTable th,
+.rawTable td {
+  border: 0.25mm solid #111111;
+  padding: 1.7mm 2mm;
+  vertical-align: top;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.rawTable th {
+  font-weight: 650;
+  text-align: center;
+}
+
+.tableRow {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+@page rawPortrait {
+  size: A4 portrait;
+  margin: 15mm 16mm 17mm;
+}
+
+@page rawLandscape {
+  size: A4 landscape;
+  margin: 13mm 14mm 15mm;
+}
+
+@media print {
+  :global(main) {
+    max-width: none;
+    padding: 0;
+  }
+
+  .document {
+    width: auto;
+    margin: 0;
+    padding: 0;
+  }
+
+  :global(.simple-nav) {
+    display: none !important;
+  }
+}

@@ -3,31 +3,18 @@ import Link from "next/link";
 export default function TeacherPage() {
   return (
     <main>
-      <h1 className="page-title">내 평가계획</h1>
-      <p className="muted">2027학년도 1학기</p>
-
-      <table className="simple-table">
-        <thead>
-          <tr>
-            <th>학년도</th>
-            <th>학기</th>
-            <th>학년</th>
-            <th>교과</th>
-            <th>상태</th>
-            <th>작업</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>2027</td>
-            <td>1학기</td>
-            <td>3학년</td>
-            <td>영어</td>
-            <td>작성 전</td>
-            <td><Link href="/teacher/performance-prototype">수행평가 작성</Link></td>
-          </tr>
-        </tbody>
-      </table>
+      <h1 className="page-title">교사용 평가계획</h1>
+      <p className="muted page-intro">평가계가 설정한 학교 양식에 맞춰 교과 내용을 작성합니다.</p>
+      <section className="panel">
+        <h2 className="section-title first-section-title">평가계획 작성</h2>
+        <p className="small-copy">교과 기본정보와 각 양식 항목의 실제 내용을 입력하고 raw 최종본을 확인합니다.</p>
+        <Link href="/teacher/evaluation-plan">평가계획 작성 화면 열기</Link>
+      </section>
+      <section className="panel">
+        <h2 className="section-title first-section-title">수행평가 구조 시험</h2>
+        <p className="small-copy">수행평가 채점 구조를 별도로 시험하는 기존 프로토타입입니다.</p>
+        <Link href="/teacher/performance-prototype">수행평가 구조 시험 열기</Link>
+      </section>
     </main>
   );
 }

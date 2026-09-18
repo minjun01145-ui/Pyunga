@@ -135,6 +135,19 @@ Document View Model
 
 화면 전용 UI를 캡처해서 PDF로 만드는 방식은 핵심 전략으로 사용하지 않는다.
 
+### Raw 평가계획 미리보기
+
+정식 디자인 엔진보다 먼저 교과 입력값과 학교 Template이 올바르게 결합되는지 확인하는 raw 미리보기를 제공한다. 이 미리보기는 `EvaluationPlan Form Draft + EvaluationTemplate -> Raw Document View`의 결정론적 변환을 사용하며, 결과 View를 저장하지 않는다.
+
+raw 미리보기의 목적은 장식이 아니라 문서 구조와 출력 안정성 검증이다.
+
+- Section 1~7단계 번호 체계와 들여쓰기/내어쓰기를 일관되게 표시한다.
+- 표는 canonical Table Template의 `rowspan`, `colspan`, 열 폭, 고정 문구를 그대로 사용한다.
+- `repeatHeader=true`인 표는 선두 머리글 행을 `thead`로 렌더링한다.
+- 일반 행은 `break-inside: avoid`를 우선 적용하고, 한 페이지보다 큰 행은 브라우저 인쇄 엔진의 안전한 분할을 허용한다.
+- Section의 세로/가로 방향은 named `@page` 규칙으로 분리하고, 내용 없는 상위 제목은 첫 실제 하위 내용의 방향을 따라 제목만 별도 페이지에 남는 상황을 줄인다.
+- 이 단계에서는 Headless Chromium PDF 생성이나 시각적 최종 양식 가공을 구현하지 않는다. 브라우저 Preview와 인쇄 미리보기로 raw 레이아웃을 검증한다.
+
 ## AI 사용 원칙
 
 PDF를 만들 때마다 LLM에게 문서를 생성시키지 않는다.
