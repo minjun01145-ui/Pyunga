@@ -30,20 +30,24 @@ export function resolveAcademicCalendarSemesterRange(
     .sort((left, right) => left.startDate.localeCompare(right.startDate));
   if (semesterEvents.length === 0) return undefined;
 
-  const startDate = semesterEvents[0].startDate;
-  const terminatingVacation = semesterEvents.find(
-    (event) => event.type === "vacation" && event.startDate > startDate,
-  );
-  const latestEventEnd = semesterEvents.reduce((latest, event) => {
+  const nonVacationEvents = semesterEvents.filter((event) => event.type !== "vacation");
+  const rangeEvents = nonVacationEvents.length > 0 ? nonVacationEvents : semesterEvents;
+  const startDate = rangeEvents[0].startDate;
+  const latestNonVacationEnd = rangeEvents.reduce((latest, event) => {
     const eventEnd = event.endDate ?? event.startDate;
     return eventEnd > latest ? eventEnd : latest;
-  }, semesterEvents[0].endDate ?? semesterEvents[0].startDate);
-  const vacationBoundary = terminatingVacation
-    ? formatDate(addDays(parseDate(terminatingVacation.startDate), -1))
-    : undefined;
-  const endDate = vacationBoundary && vacationBoundary >= startDate
-    ? vacationBoundary
-    : latestEventEnd;
+  }, rangeEvents[0].endDate ?? rangeEvents[0].startDate);
+  const firstVacation = semesterEvents.find(
+    (event) => event.type === "vacation" && event.startDate > startDate,
+  );
+  const hasSchoolEventAfterVacation = firstVacation
+    ? nonVacationEvents.some(
+        (event) => event.startDate > (firstVacation.endDate ?? firstVacation.startDate),
+      )
+    : false;
+  const endDate = firstVacation && !hasSchoolEventAfterVacation
+    ? formatDate(addDays(parseDate(firstVacation.startDate), -1))
+    : latestNonVacationEnd;
 
   return { startDate, endDate };
 }
@@ -101,14 +105,16 @@ function buildMonthPeriods(
     const month = monthIndex + 1;
     const periodStart = formatDate(cursor);
     const periodEnd = formatDate(new Date(Date.UTC(year, monthIndex + 1, 0)));
-    periods.push({
-      key: `${year}-${pad(month)}`,
-      label: `${month}월`,
-      month,
-      startDate: periodStart,
-      endDate: periodEnd,
-      events: events.filter((event) => overlaps(event, periodStart, periodEnd)),
-    });
+    if (!isEntirelyVacation(events, periodStart, periodEnd)) {
+      periods.push({
+        key: `${year}-${pad(month)}`,
+        label: `${month}월`,
+        month,
+        startDate: periodStart,
+        endDate: periodEnd,
+        events: events.filter((event) => overlaps(event, periodStart, periodEnd)),
+      });
+    }
     cursor = new Date(Date.UTC(year, monthIndex + 1, 1));
   }
   return periods;
@@ -129,15 +135,17 @@ function buildWeekPeriods(
     const week = Math.ceil(thursday.getUTCDate() / 7);
     const periodStart = formatDate(cursor);
     const periodEnd = formatDate(addDays(cursor, 6));
-    periods.push({
-      key: `${thursday.getUTCFullYear()}-${pad(month)}-w${week}`,
-      label: `${month}월 ${week}주`,
-      month,
-      week,
-      startDate: periodStart,
-      endDate: periodEnd,
-      events: events.filter((event) => overlaps(event, periodStart, periodEnd)),
-    });
+    if (!isEntirelyVacation(events, periodStart, periodEnd)) {
+      periods.push({
+        key: `${thursday.getUTCFullYear()}-${pad(month)}-w${week}`,
+        label: `${month}월 ${week}주`,
+        month,
+        week,
+        startDate: periodStart,
+        endDate: periodEnd,
+        events: events.filter((event) => overlaps(event, periodStart, periodEnd)),
+      });
+    }
     cursor = addDays(cursor, 7);
   }
   return periods;
@@ -147,6 +155,19 @@ function overlaps(event: AcademicCalendarEvent, startDate: string, endDate: stri
   const eventEnd = event.endDate ?? event.startDate;
   return event.startDate <= endDate && eventEnd >= startDate;
 }
+
+function isEntirelyVacation(
+  events: readonly AcademicCalendarEvent[],
+  startDate: string,
+  endDate: string,
+): boolean {
+  return events.some((event) =>
+    event.type === "vacation"
+    && event.startDate <= startDate
+    && (event.endDate ?? event.startDate) >= endDate,
+  );
+}
+
 
 function formatEventDate(event: Pick<AcademicCalendarEvent, "startDate" | "endDate">): string {
   const start = formatMonthDay(event.startDate);

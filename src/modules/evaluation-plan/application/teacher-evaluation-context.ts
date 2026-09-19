@@ -12,7 +12,7 @@ export type TeacherEvaluationContext = {
 
 export const DEMO_TEACHER_EVALUATION_CONTEXT: TeacherEvaluationContext = {
   academicYear: 2026,
-  semester: 1,
+  semester: 2,
   grade: 3,
   subjectLabel: "영어",
 };

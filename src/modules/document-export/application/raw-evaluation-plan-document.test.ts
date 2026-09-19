@@ -233,7 +233,7 @@ describe("raw evaluation plan document", () => {
     };
 
     const view = buildRawEvaluationPlanDocument(template, calendarDraft, {
-      teacherContext: DEMO_TEACHER_EVALUATION_CONTEXT,
+      teacherContext: { ...DEMO_TEACHER_EVALUATION_CONTEXT, semester: 1 },
       calendarEvents,
     });
     const content = view.sections[0].content;

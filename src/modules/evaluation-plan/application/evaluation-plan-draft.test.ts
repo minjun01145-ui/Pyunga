@@ -30,7 +30,7 @@ describe("evaluation plan draft", () => {
     const draft = createEmptyEvaluationPlanDraft(DEMO_TEACHER_EVALUATION_CONTEXT);
     expect(draft).toMatchObject({
       academicYear: "2026",
-      semester: "1",
+      semester: "2",
       grade: "3",
       subjectLabel: "영어",
     });

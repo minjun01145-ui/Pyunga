@@ -75,7 +75,7 @@ describe("academic calendar teaching periods", () => {
     expect(periods.flatMap((period) => period.events).some((event) => event.title === "2학년 행사")).toBe(false);
   });
 
-  it("uses a school-wide vacation boundary even when the selected grade has no late-semester event", () => {
+  it("extends through the pre-vacation teaching range even when the selected grade has no late event", () => {
     const calendar: AcademicCalendarEvent[] = [
       events[0],
       {
@@ -104,5 +104,59 @@ describe("academic calendar teaching periods", () => {
     if (!range) throw new Error("semester range expected");
     const periods = buildAcademicCalendarTeachingPeriods(calendar, { semester: 1, grade: 3, unit: "month_week", range });
     expect(periods.at(-1)?.endDate).toBe("2026-07-19");
+  });
+
+  it("skips vacation-only weeks but keeps post-vacation school weeks in the same semester", () => {
+    const calendar: AcademicCalendarEvent[] = [
+      {
+        id: "semester-start",
+        schoolId: "school",
+        academicYear: 2026,
+        title: "2학기 개학",
+        type: "school_event",
+        semester: 2,
+        startDate: "2026-08-18",
+        targetGrades: [],
+      },
+      {
+        id: "winter",
+        schoolId: "school",
+        academicYear: 2026,
+        title: "겨울방학",
+        type: "vacation",
+        semester: 2,
+        startDate: "2026-12-31",
+        endDate: "2027-01-28",
+        targetGrades: [],
+      },
+      {
+        id: "reopen",
+        schoolId: "school",
+        academicYear: 2026,
+        title: "개학일",
+        type: "school_event",
+        semester: 2,
+        startDate: "2027-01-29",
+        targetGrades: [],
+      },
+      {
+        id: "graduation",
+        schoolId: "school",
+        academicYear: 2026,
+        title: "졸업식",
+        type: "school_event",
+        semester: 2,
+        startDate: "2027-02-03",
+        targetGrades: [3],
+      },
+    ];
+    const range = resolveAcademicCalendarSemesterRange(calendar, 2);
+    expect(range).toEqual({ startDate: "2026-08-18", endDate: "2027-02-03" });
+    if (!range) throw new Error("semester range expected");
+    const periods = buildAcademicCalendarTeachingPeriods(calendar, { semester: 2, grade: 3, unit: "month_week", range });
+
+    expect(periods.some((period) => period.startDate === "2027-01-04")).toBe(false);
+    expect(periods.some((period) => period.startDate === "2027-01-25" && period.endDate === "2027-01-31")).toBe(true);
+    expect(periods.at(-1)?.endDate).toBe("2027-02-07");
   });
 });
