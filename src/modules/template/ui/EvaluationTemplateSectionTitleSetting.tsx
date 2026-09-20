@@ -10,10 +10,6 @@ type EvaluationTemplateSectionTitleSettingProps = {
   onTeacherEditableTitleChange: (enabled: boolean) => void;
 };
 
-/**
- * Administrator-facing title policy control. The persisted flag is consumed by
- * the future teacher editor through the domain title-presentation helper.
- */
 export function EvaluationTemplateSectionTitleSetting({
   sectionId,
   title,

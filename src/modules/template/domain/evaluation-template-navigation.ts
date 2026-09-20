@@ -5,11 +5,6 @@ export type EvaluationTemplateSectionNavigationNode = {
   children: EvaluationTemplateSectionNavigationNode[];
 };
 
-/**
- * Builds a real hierarchy from the persisted flat template list. The sidebar
- * and the future section editor can share this instead of each rebuilding the
- * parent/child relationship independently.
- */
 export function buildEvaluationTemplateSectionNavigation(
   sections: readonly EvaluationTemplateSection[],
 ): EvaluationTemplateSectionNavigationNode[] {

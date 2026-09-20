@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 
 import type { AcademicCalendarEvent } from "@/modules/academic-calendar";
 import {
-  applyTeacherEvaluationContext,
   buildTeachingLearningCalendarRows,
   createEmptyEvaluationPlanDraft,
   getEvaluationPlanDraftTemplateIssues,
@@ -19,7 +18,7 @@ import type { EvaluationTemplate, EvaluationTemplateSection } from "@/modules/te
 import { authenticatedFetch } from "@/modules/auth/client";
 import { useUnsavedChangesGuard } from "@/shared/ui/useUnsavedChangesGuard";
 import {
-  loadEvaluationPlanDraftFromStorage,
+  loadEvaluationPlanDraftBootstrap,
   resetInvalidEvaluationPlanDraftStorage,
   saveEvaluationPlanDraftToStorage,
 } from "../infrastructure/browser-evaluation-plan-draft";
@@ -60,23 +59,17 @@ export function EvaluationPlanWorkspace() {
         setTemplate(body.template);
         setTeacherContext(body.teacherContext);
         setCalendarEvents(body.calendarEvents);
-        if (body.template) {
-          const templateSignature = getEvaluationPlanTemplateSignature(body.template, body.teacherContext);
-          const storedDraft = loadEvaluationPlanDraftFromStorage(window.localStorage, templateSignature);
-          if (storedDraft.status === "found") {
-            setDraft(applyTeacherEvaluationContext(storedDraft.draft, body.teacherContext));
-          } else if (storedDraft.status === "template_changed") {
-            setDraft(createEmptyEvaluationPlanDraft(body.teacherContext));
-            setStorageNotice("평가계 양식이 변경되었습니다. 이전 양식에서 작성한 초안은 브라우저에 보존하고 새 양식용 입력을 시작합니다.");
-          } else if (storedDraft.status === "invalid") {
-            setDraft(createEmptyEvaluationPlanDraft(body.teacherContext));
-            setHasInvalidStorage(true);
-            setError("브라우저에 저장된 평가계획 초안 형식이 올바르지 않습니다. 기존 데이터를 보호하기 위해 덮어쓰지 않습니다.");
-          } else {
-            setDraft(createEmptyEvaluationPlanDraft(body.teacherContext));
-          }
-        } else {
-          setDraft(createEmptyEvaluationPlanDraft(body.teacherContext));
+        const bootstrap = loadEvaluationPlanDraftBootstrap(
+          window.localStorage,
+          body.template,
+          body.teacherContext,
+        );
+        setDraft(bootstrap.draft);
+        if (bootstrap.status === "template_changed") {
+          setStorageNotice("평가계 양식이 변경되었습니다. 이전 양식에서 작성한 초안은 브라우저에 보존하고 새 양식용 입력을 시작합니다.");
+        } else if (bootstrap.status === "invalid") {
+          setHasInvalidStorage(true);
+          setError("브라우저에 저장된 평가계획 초안 형식이 올바르지 않습니다. 기존 데이터를 보호하기 위해 덮어쓰지 않습니다.");
         }
         setIsDirty(false);
       } catch (loadError) {

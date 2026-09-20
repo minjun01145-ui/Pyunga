@@ -10,11 +10,6 @@ export type TeacherSectionTitlePresentation =
       exampleTitle: string;
     };
 
-/**
- * Converts the administrator's section-title setting into the shape the
- * teacher editor will need later. Keeping this rule in the domain layer
- * prevents the teacher editor from re-implementing the same interpretation.
- */
 export function getTeacherSectionTitlePresentation(
   section: Pick<EvaluationTemplateSection, "title" | "teacherEditableTitle">,
 ): TeacherSectionTitlePresentation {

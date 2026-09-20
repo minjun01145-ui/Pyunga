@@ -5,11 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { AcademicCalendarEvent } from "@/modules/academic-calendar";
 import {
-  applyTeacherEvaluationContext,
   createEmptyEvaluationPlanDraft,
   getEvaluationPlanDraftTemplateIssues,
-  getEvaluationPlanTemplateSignature,
-  loadEvaluationPlanDraftFromStorage,
+  loadEvaluationPlanDraftBootstrap,
   type EvaluationPlanDraft,
   type TeacherEvaluationContext,
 } from "@/modules/evaluation-plan";
@@ -48,24 +46,16 @@ export function RawEvaluationPlanPreviewWorkspace() {
         setTemplate(body.template);
         setTeacherContext(body.teacherContext);
         setCalendarEvents(body.calendarEvents);
-        if (!body.template) {
-          setDraft(createEmptyEvaluationPlanDraft(body.teacherContext));
-          return;
-        }
-
-        const storedDraft = loadEvaluationPlanDraftFromStorage(
+        const bootstrap = loadEvaluationPlanDraftBootstrap(
           window.localStorage,
-          getEvaluationPlanTemplateSignature(body.template, body.teacherContext),
+          body.template,
+          body.teacherContext,
         );
-        if (storedDraft.status === "found") {
-          setDraft(applyTeacherEvaluationContext(storedDraft.draft, body.teacherContext));
-        } else if (storedDraft.status === "template_changed") {
-          setDraft(createEmptyEvaluationPlanDraft(body.teacherContext));
+        setDraft(bootstrap.draft);
+        if (bootstrap.status === "template_changed") {
           setNotice("평가계 양식이 변경되어 현재 양식과 일치하는 저장 초안이 없습니다. 이전 양식 초안은 브라우저에 보존되어 있습니다.");
-        } else if (storedDraft.status === "invalid") {
+        } else if (bootstrap.status === "invalid") {
           setError("브라우저에 저장된 평가계획 초안 형식이 올바르지 않아 최종본을 구성하지 않았습니다.");
-        } else {
-          setDraft(createEmptyEvaluationPlanDraft(body.teacherContext));
         }
       } catch (loadError) {
         if (!cancelled) {

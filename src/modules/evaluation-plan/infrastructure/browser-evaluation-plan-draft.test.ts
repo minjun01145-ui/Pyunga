@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { createEmptyEvaluationPlanDraft } from "../application/evaluation-plan-draft";
 import {
+  createEmptyEvaluationPlanDraft,
+  getEvaluationPlanTemplateSignature,
+} from "../application/evaluation-plan-draft";
+import { createDefaultEvaluationTemplateSectionConfig } from "@/modules/template";
+import {
+  loadEvaluationPlanDraftBootstrap,
   loadEvaluationPlanDraftFromStorage,
   resetInvalidEvaluationPlanDraftStorage,
   saveEvaluationPlanDraftToStorage,
@@ -64,5 +69,44 @@ describe("browser evaluation plan draft storage", () => {
     expect(resetInvalidEvaluationPlanDraftStorage(storage)).toBe(true);
     expect(loadEvaluationPlanDraftFromStorage(storage, "v1-template")).toEqual({ status: "empty" });
     expect(storage.getItem("pyunga:evaluation-plan-drafts:invalid-backup:v1")).toBe("{not-json");
+  });
+
+  it("bootstraps matching storage with the current teacher context", () => {
+    const storage = memoryStorage();
+    const teacherContext = {
+      academicYear: 2026,
+      semester: 2 as const,
+      grade: 3 as const,
+      subjectLabel: "영어",
+    };
+    const template = {
+      sections: [{
+        id: "root",
+        title: "평가 세부계획",
+        level: 1 as const,
+        teacherEditableTitle: false,
+        order: 0,
+        config: createDefaultEvaluationTemplateSectionConfig("title_only"),
+      }],
+    };
+    const storedDraft = {
+      ...createEmptyEvaluationPlanDraft(),
+      subjectLabel: "과거 과목",
+    };
+
+    saveEvaluationPlanDraftToStorage(
+      storage,
+      getEvaluationPlanTemplateSignature(template, teacherContext),
+      storedDraft,
+    );
+
+    const result = loadEvaluationPlanDraftBootstrap(storage, template, teacherContext);
+    expect(result.status).toBe("found");
+    expect(result.draft).toMatchObject({
+      academicYear: "2026",
+      semester: "2",
+      grade: "3",
+      subjectLabel: "영어",
+    });
   });
 });

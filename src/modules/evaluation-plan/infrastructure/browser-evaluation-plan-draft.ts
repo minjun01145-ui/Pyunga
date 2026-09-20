@@ -1,7 +1,12 @@
 import {
+  applyTeacherEvaluationContext,
+  createEmptyEvaluationPlanDraft,
+  getEvaluationPlanTemplateSignature,
   parseEvaluationPlanDraft,
   type EvaluationPlanDraft,
 } from "../application/evaluation-plan-draft";
+import type { TeacherEvaluationContext } from "../application/teacher-evaluation-context";
+import type { EvaluationTemplate } from "@/modules/template";
 
 const STORAGE_KEY = "pyunga:evaluation-plan-drafts:v1";
 const INVALID_BACKUP_KEY = "pyunga:evaluation-plan-drafts:invalid-backup:v1";
@@ -24,6 +29,40 @@ export type EvaluationPlanDraftStorageResult =
   | { status: "found"; draft: EvaluationPlanDraft }
   | { status: "template_changed" }
   | { status: "invalid" };
+
+export type EvaluationPlanDraftBootstrapResult = {
+  status: EvaluationPlanDraftStorageResult["status"];
+  draft: EvaluationPlanDraft;
+};
+
+export function loadEvaluationPlanDraftBootstrap(
+  storage: StorageLike,
+  template: EvaluationTemplate | null,
+  teacherContext: TeacherEvaluationContext,
+): EvaluationPlanDraftBootstrapResult {
+  if (!template) {
+    return {
+      status: "empty",
+      draft: createEmptyEvaluationPlanDraft(teacherContext),
+    };
+  }
+
+  const stored = loadEvaluationPlanDraftFromStorage(
+    storage,
+    getEvaluationPlanTemplateSignature(template, teacherContext),
+  );
+  if (stored.status === "found") {
+    return {
+      status: stored.status,
+      draft: applyTeacherEvaluationContext(stored.draft, teacherContext),
+    };
+  }
+
+  return {
+    status: stored.status,
+    draft: createEmptyEvaluationPlanDraft(teacherContext),
+  };
+}
 
 export function loadEvaluationPlanDraftFromStorage(
   storage: StorageLike,

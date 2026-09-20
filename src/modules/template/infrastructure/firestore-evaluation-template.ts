@@ -89,8 +89,6 @@ function serializeEvaluationTemplate(template: EvaluationTemplate) {
       title: section.title,
       level: section.level,
       teacherEditableTitle: section.teacherEditableTitle,
-      order: section.order,
-      ...(section.parentId ? { parentId: section.parentId } : {}),
       ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
       ...(section.config ? { config: section.config } : {}),
     })),
