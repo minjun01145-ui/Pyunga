@@ -100,6 +100,7 @@ export function TeachingLearningCalendarPreview({
                       cell={cell}
                       placement={placements[rowIndex]?.find((item) => item.cellIndex === cellIndex)}
                       selectedColumn={selectedColumn}
+                      onSelectColumn={setSelectedColumn}
                     />
                   ))}
                 </tr>
@@ -119,6 +120,7 @@ export function TeachingLearningCalendarPreview({
                         period={period}
                         placement={placements[rowIndex]?.find((item) => item.cellIndex === cellIndex)}
                         selectedColumn={selectedColumn}
+                        onSelectColumn={setSelectedColumn}
                       />
                     ))}
                   </tr>
@@ -179,13 +181,18 @@ function PreviewCell({
   period,
   placement,
   selectedColumn,
+  onSelectColumn,
 }: {
   cell: TableTemplateCellNode;
   period?: AcademicCalendarTeachingPeriod;
   placement?: { startColumn: number; endColumn: number };
   selectedColumn?: number;
+  onSelectColumn: (column: number) => void;
 }) {
   const CellTag = cell.type === "tableHeader" ? "th" : "td";
+  const selectableColumn = placement && placement.endColumn === placement.startColumn + 1
+    ? placement.startColumn
+    : undefined;
   const isSelected = selectedColumn !== undefined
     && placement !== undefined
     && placement.startColumn <= selectedColumn
@@ -194,9 +201,21 @@ function PreviewCell({
 
   return (
     <CellTag
-      className={isSelected ? styles.selectedColumnCell : ""}
+      className={[
+        selectableColumn !== undefined ? styles.selectableColumnCell : "",
+        isSelected ? styles.selectedColumnCell : "",
+      ].filter(Boolean).join(" ")}
       colSpan={cell.attrs.colspan}
       rowSpan={cell.attrs.rowspan}
+      onClick={selectableColumn === undefined ? undefined : () => onSelectColumn(selectableColumn)}
+      onKeyDown={selectableColumn === undefined ? undefined : (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        onSelectColumn(selectableColumn);
+      }}
+      role={selectableColumn === undefined ? undefined : "button"}
+      tabIndex={selectableColumn === undefined ? undefined : 0}
+      aria-pressed={selectableColumn === undefined ? undefined : isSelected}
     >
       {cell.attrs.fieldKey && cell.attrs.inputSource !== "system" ? (
         <span className={styles.teacherPlaceholder}>{text}</span>

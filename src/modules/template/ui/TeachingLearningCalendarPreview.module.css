@@ -74,9 +74,26 @@
   text-align: center;
 }
 
+.previewTable .selectableColumnCell {
+  cursor: pointer;
+}
+
+.previewTable .selectableColumnCell:hover {
+  background: #f1f7ff;
+}
+
+.previewTable .selectableColumnCell:focus-visible {
+  outline: 3px solid #246fc2;
+  outline-offset: -3px;
+}
+
 .previewTable .selectedColumnCell {
-  background: #eaf4ff;
+  background: #dceeff;
   box-shadow: inset 2px 0 #246fc2, inset -2px 0 #246fc2;
+}
+
+.previewTable .selectedColumnCell:hover {
+  background: #dceeff;
 }
 
 .teacherPlaceholder {
