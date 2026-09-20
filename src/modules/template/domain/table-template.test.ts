@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createTableTemplateDocument,
+  getTableTemplateCellPlacements,
   getTableTemplateFieldKeys,
   parseTableTemplateDocument,
 } from "./table-template";
@@ -128,6 +129,30 @@ describe("table template", () => {
     invalid.content[0].content[0].content[0].attrs.systemValue = "academic_calendar.month";
 
     expect(parseTableTemplateDocument(invalid)).toBeUndefined();
+  });
+
+  it("maps logical columns correctly across rowspans and colspans", () => {
+    const document = createTableTemplateDocument([
+      [
+        { kind: "text", text: "A", rowspan: 2 },
+        { kind: "text", text: "B-C", colspan: 2 },
+      ],
+      [
+        { kind: "text", text: "B" },
+        { kind: "text", text: "C" },
+      ],
+    ]);
+
+    expect(getTableTemplateCellPlacements(document)).toEqual([
+      [
+        { cellIndex: 0, startColumn: 0, endColumn: 1 },
+        { cellIndex: 1, startColumn: 1, endColumn: 3 },
+      ],
+      [
+        { cellIndex: 0, startColumn: 1, endColumn: 2 },
+        { cellIndex: 1, startColumn: 2, endColumn: 3 },
+      ],
+    ]);
   });
 
   it("accepts long plain-text criteria inside a table cell", () => {

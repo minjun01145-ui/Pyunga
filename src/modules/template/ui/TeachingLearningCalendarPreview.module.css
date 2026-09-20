@@ -1,0 +1,118 @@
+.previewShell {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  background: #fbfcff;
+}
+
+.previewHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.previewHeader h3,
+.previewHeader p,
+.columnHelp,
+.columnStatus {
+  margin: 0;
+}
+
+.columnPicker {
+  display: grid;
+  min-width: 760px;
+  gap: 2px;
+}
+
+.columnPicker button {
+  min-width: 0;
+  padding: 6px 4px;
+  border: 1px solid #aeb8c7;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #333333;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.columnPicker button:hover,
+.columnPicker .selectedColumnButton {
+  border-color: #246fc2;
+  background: #eaf4ff;
+  color: #164f8d;
+  font-weight: 700;
+}
+
+.previewViewport {
+  overflow-x: auto;
+}
+
+.previewTable {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: #ffffff;
+}
+
+.previewTable th,
+.previewTable td {
+  min-width: 56px;
+  padding: 7px 8px;
+  border: 1px solid #666666;
+  vertical-align: middle;
+  white-space: pre-wrap;
+}
+
+.previewTable th {
+  background: #f3f3f3;
+  font-weight: 650;
+  text-align: center;
+}
+
+.previewTable .selectedColumnCell {
+  background: #eaf4ff;
+  box-shadow: inset 2px 0 #246fc2, inset -2px 0 #246fc2;
+}
+
+.teacherPlaceholder {
+  color: #777777;
+  font-size: 12px;
+}
+
+.columnSettings {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #b7c9dc;
+  background: #f4f9ff;
+}
+
+.columnSettingsRow {
+  display: grid;
+  grid-template-columns: minmax(180px, 320px) 1fr;
+  align-items: end;
+  gap: 12px;
+}
+
+.columnStatus {
+  color: #164f8d;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.columnHelp {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .columnSettingsRow {
+    grid-template-columns: 1fr;
+  }
+}

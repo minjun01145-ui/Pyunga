@@ -3,6 +3,14 @@
 import { useState } from "react";
 
 import {
+  buildAcademicCalendarTeachingPeriods,
+  resolveAcademicCalendarSemesterRange,
+  type AcademicCalendarEvent,
+  type AcademicCalendarTeachingPeriod,
+} from "@/modules/academic-calendar";
+import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
+import { EVALUATION_DEMO_CONTEXT } from "@/shared/demo/evaluation-demo-context";
+import {
   EVALUATION_TEMPLATE_SECTION_FORMAT_TYPES,
   createDefaultEvaluationTemplateSectionConfig,
   type EvaluationTemplateSectionConfig,
@@ -10,6 +18,7 @@ import {
 } from "../domain/evaluation-template-section-config";
 import type { TableTemplateDocument } from "../domain/table-template";
 import { TableTemplateEditor } from "./TableTemplateEditor";
+import { TeachingLearningCalendarPreview } from "./TeachingLearningCalendarPreview";
 import styles from "./EvaluationTemplateCurrentSectionWorkspace.module.css";
 
 type EvaluationTemplateSectionFormatEditorProps = {
@@ -35,6 +44,17 @@ export function EvaluationTemplateSectionFormatEditor({
   const [selectedType, setSelectedType] = useState<EvaluationTemplateSectionFormatType>(
     config?.type ?? "teaching_learning_table",
   );
+  const [calendarPreviewPeriods, setCalendarPreviewPeriods] = useState<AcademicCalendarTeachingPeriod[]>();
+  const [calendarPreviewError, setCalendarPreviewError] = useState<string>();
+  const [isGeneratingCalendarRows, setIsGeneratingCalendarRows] = useState(false);
+
+  function handleConfigChange(nextConfig: EvaluationTemplateSectionConfig) {
+    if (nextConfig.type !== config?.type) {
+      setCalendarPreviewPeriods(undefined);
+      setCalendarPreviewError(undefined);
+    }
+    onChange(nextConfig);
+  }
 
   if (!config) {
     return (
@@ -54,7 +74,7 @@ export function EvaluationTemplateSectionFormatEditor({
         <button
           className="secondary-button align-start"
           type="button"
-          onClick={() => onChange(createDefaultEvaluationTemplateSectionConfig(selectedType))}
+          onClick={() => handleConfigChange(createDefaultEvaluationTemplateSectionConfig(selectedType))}
         >
           이 양식으로 설정
         </button>
@@ -75,7 +95,7 @@ export function EvaluationTemplateSectionFormatEditor({
               : "표 안에서 직접 글자와 셀 구조를 수정하세요."}
           </p>
         </div>
-        <FormatTypeChanger config={config} selectedType={selectedType} onSelectedTypeChange={setSelectedType} onChange={onChange} />
+        <FormatTypeChanger config={config} selectedType={selectedType} onSelectedTypeChange={setSelectedType} onChange={handleConfigChange} />
       </div>
       {config.type === "title_only" ? (
         <p className="small-copy">이 항목은 교과 입력칸 없이 제목만 최종 문서에 표시됩니다.</p>
@@ -83,20 +103,68 @@ export function EvaluationTemplateSectionFormatEditor({
         <p className="small-copy">번호 단계: {config.numberingLevels.map(numberingLabel).join(" → ")}</p>
       ) : (
         <>
-          <TableLayoutOptions config={config} onChange={onChange} />
+          <TableLayoutOptions config={config} onChange={handleConfigChange} />
           {config.type === "teaching_learning_table" ? (
-            <TeachingLearningCalendarOptions config={config} onChange={onChange} />
+            <TeachingLearningCalendarOptions
+              config={config}
+              isGenerating={isGeneratingCalendarRows}
+              onChange={(nextConfig) => {
+                setCalendarPreviewPeriods(undefined);
+                setCalendarPreviewError(undefined);
+                handleConfigChange(nextConfig);
+              }}
+              onGenerate={() => void generateCalendarRows(config)}
+            />
+          ) : null}
+          {calendarPreviewError ? <p className="validation-error-box">{calendarPreviewError}</p> : null}
+          {config.type === "teaching_learning_table" && calendarPreviewPeriods ? (
+            <TeachingLearningCalendarPreview
+              config={config}
+              periods={calendarPreviewPeriods}
+              onChange={handleConfigChange}
+            />
+          ) : null}
+          {config.type === "teaching_learning_table" ? (
+            <h3 className="subsection-title">표 구조 편집</h3>
           ) : null}
           <TableTemplateEditor
             key={config.type}
             document={config.table}
-            allowAcademicCalendarSystemValues={config.type === "teaching_learning_table"}
-            onChange={(table) => onChange(withTable(config, table))}
+            allowAcademicCalendarSystemValues={false}
+            onChange={(table) => handleConfigChange(withTable(config, table))}
           />
         </>
       )}
     </div>
   );
+
+  async function generateCalendarRows(currentConfig: Extract<EvaluationTemplateSectionConfig, { type: "teaching_learning_table" }>) {
+    setIsGeneratingCalendarRows(true);
+    setCalendarPreviewError(undefined);
+    try {
+      const response = await authenticatedFetch(
+        `/api/admin/evaluation/academic-calendar?academicYear=${EVALUATION_DEMO_CONTEXT.academicYear}`,
+      );
+      const body = (await response.json()) as { events?: AcademicCalendarEvent[]; error?: string };
+      if (!response.ok) throw new Error(body.error ?? "학사일정을 불러오지 못했습니다.");
+      const events = body.events ?? [];
+      const range = resolveAcademicCalendarSemesterRange(events, EVALUATION_DEMO_CONTEXT.semester);
+      if (!range) throw new Error("현재 학기의 학사일정이 없어 자동 행을 생성할 수 없습니다.");
+      const periods = buildAcademicCalendarTeachingPeriods(events, {
+        semester: EVALUATION_DEMO_CONTEXT.semester,
+        grade: EVALUATION_DEMO_CONTEXT.grade,
+        unit: currentConfig.calendarRows.periodUnit,
+        range,
+      });
+      if (periods.length === 0) throw new Error("현재 학기·학년에 적용할 자동 행이 없습니다.");
+      setCalendarPreviewPeriods(periods);
+    } catch (error) {
+      setCalendarPreviewPeriods(undefined);
+      setCalendarPreviewError(error instanceof Error ? error.message : "자동 행 생성에 실패했습니다.");
+    } finally {
+      setIsGeneratingCalendarRows(false);
+    }
+  }
 }
 
 function FormatTypeChanger({
@@ -184,10 +252,14 @@ function TableLayoutOptions({
 
 function TeachingLearningCalendarOptions({
   config,
+  isGenerating,
   onChange,
+  onGenerate,
 }: {
   config: Extract<EvaluationTemplateSectionConfig, { type: "teaching_learning_table" }>;
+  isGenerating: boolean;
   onChange: (config: EvaluationTemplateSectionConfig) => void;
+  onGenerate: () => void;
 }) {
   return (
     <div className={styles.tableOptions}>
@@ -219,6 +291,16 @@ function TeachingLearningCalendarOptions({
           <option value="month_week">주 단위 (월·주·기간·주요일정 사용 가능)</option>
         </select>
       </label>
+      {config.calendarRows.enabled ? (
+        <button
+          className="secondary-button"
+          type="button"
+          disabled={isGenerating}
+          onClick={onGenerate}
+        >
+          {isGenerating ? "학사일정 불러오는 중" : "자동 행 생성"}
+        </button>
+      ) : null}
     </div>
   );
 }

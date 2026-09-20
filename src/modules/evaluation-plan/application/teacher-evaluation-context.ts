@@ -2,6 +2,7 @@ import type {
   AcademicSemester,
   SchoolGrade,
 } from "@/modules/academic-calendar";
+import { EVALUATION_DEMO_CONTEXT } from "@/shared/demo/evaluation-demo-context";
 
 export type TeacherEvaluationContext = {
   academicYear: number;
@@ -10,12 +11,7 @@ export type TeacherEvaluationContext = {
   subjectLabel: string;
 };
 
-export const DEMO_TEACHER_EVALUATION_CONTEXT: TeacherEvaluationContext = {
-  academicYear: 2026,
-  semester: 2,
-  grade: 3,
-  subjectLabel: "영어",
-};
+export const DEMO_TEACHER_EVALUATION_CONTEXT: TeacherEvaluationContext = EVALUATION_DEMO_CONTEXT;
 
 export class TeacherEvaluationContextUnavailableError extends Error {
   constructor() {

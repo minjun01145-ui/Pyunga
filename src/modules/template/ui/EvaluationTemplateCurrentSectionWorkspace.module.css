@@ -41,10 +41,10 @@
 
 .tableOptions {
   display: grid;
-  grid-template-columns: 160px minmax(220px, 1fr);
+  grid-template-columns: 180px minmax(240px, 1fr) max-content;
   align-items: end;
   gap: 14px;
-  max-width: 620px;
+  max-width: 860px;
 }
 
 .checkboxField {

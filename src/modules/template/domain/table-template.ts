@@ -59,6 +59,12 @@ export type TableTemplateDocument = {
   content: [TableTemplateNode];
 };
 
+export type TableTemplateCellPlacement = {
+  cellIndex: number;
+  startColumn: number;
+  endColumn: number;
+};
+
 export type TableTemplateCellDraft = {
   kind: "text" | "input";
   text?: string;
@@ -139,6 +145,38 @@ export function getTableTemplateColumnWidths(document: TableTemplateDocument): A
     }
   }
   return widths;
+}
+
+export function getTableTemplateCellPlacements(
+  document: TableTemplateDocument,
+): TableTemplateCellPlacement[][] {
+  const rows = document.content[0].content;
+  const logicalColumnCount = rows[0].content.reduce(
+    (total, cell) => total + cell.attrs.colspan,
+    0,
+  );
+  const occupiedRowsRemaining = Array.from({ length: logicalColumnCount }, () => 0);
+  const placements: TableTemplateCellPlacement[][] = [];
+
+  for (const row of rows) {
+    const rowPlacements: TableTemplateCellPlacement[] = [];
+    for (let cellIndex = 0; cellIndex < row.content.length; cellIndex += 1) {
+      const cell = row.content[cellIndex];
+      const startColumn = findFreeColumnRange(occupiedRowsRemaining, cell.attrs.colspan);
+      if (startColumn < 0) continue;
+      const endColumn = startColumn + cell.attrs.colspan;
+      rowPlacements.push({ cellIndex, startColumn, endColumn });
+      for (let columnIndex = startColumn; columnIndex < endColumn; columnIndex += 1) {
+        occupiedRowsRemaining[columnIndex] = cell.attrs.rowspan;
+      }
+    }
+    placements.push(rowPlacements);
+    for (let columnIndex = 0; columnIndex < occupiedRowsRemaining.length; columnIndex += 1) {
+      if (occupiedRowsRemaining[columnIndex] > 0) occupiedRowsRemaining[columnIndex] -= 1;
+    }
+  }
+
+  return placements;
 }
 
 function createCellFromDraft(draft: TableTemplateCellDraft): TableTemplateCellNode {
