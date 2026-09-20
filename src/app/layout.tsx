@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AppNavigation } from "@/shared/ui";
+import { AppNavigation } from "./_components/AppNavigation";
 import "./globals.css";
 
 export const metadata: Metadata = {

@@ -16,7 +16,7 @@ import {
   type TeacherEvaluationContext,
 } from "@/modules/evaluation-plan";
 import type { EvaluationTemplate, EvaluationTemplateSection } from "@/modules/template";
-import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
+import { authenticatedFetch } from "@/modules/auth/client";
 import { useUnsavedChangesGuard } from "@/shared/ui/useUnsavedChangesGuard";
 import {
   loadEvaluationPlanDraftFromStorage,

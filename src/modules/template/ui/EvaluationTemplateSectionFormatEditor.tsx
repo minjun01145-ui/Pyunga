@@ -8,7 +8,7 @@ import {
   type AcademicCalendarEvent,
   type AcademicCalendarTeachingPeriod,
 } from "@/modules/academic-calendar";
-import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
+import { authenticatedFetch } from "@/modules/auth/client";
 import { EVALUATION_DEMO_CONTEXT } from "@/shared/demo/evaluation-demo-context";
 import {
   EVALUATION_TEMPLATE_SECTION_FORMAT_TYPES,

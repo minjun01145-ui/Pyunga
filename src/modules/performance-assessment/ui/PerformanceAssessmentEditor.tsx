@@ -11,7 +11,7 @@ import { PerformanceValidationPanel } from "./PerformanceValidationPanel";
 import { SectionedScoringEditor } from "./SectionedScoringEditor";
 import { WholeScoringEditor } from "./WholeScoringEditor";
 import { createPrototypeAssessment } from "./prototype/create-prototype-assessment";
-import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
+import { authenticatedFetch } from "@/modules/auth/client";
 
 type ScoringMode = "sections" | "whole";
 

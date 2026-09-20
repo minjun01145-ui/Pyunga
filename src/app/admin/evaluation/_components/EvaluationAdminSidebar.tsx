@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import type { EvaluationTemplateSection } from "@/modules/template";
 import { EvaluationTemplateSectionNavigation } from "@/modules/template/ui";
-import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
+import { authenticatedFetch } from "@/modules/auth/client";
 import styles from "./EvaluationAdminSidebar.module.css";
 
 type TemplateResponse = {

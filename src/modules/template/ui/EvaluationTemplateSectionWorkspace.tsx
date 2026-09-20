@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
+import { authenticatedFetch } from "@/modules/auth/client";
 import type { EvaluationTemplateImportResult } from "../application/evaluation-template-import";
 import {
   getEvaluationTemplateIssues,

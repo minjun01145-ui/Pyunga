@@ -1,10 +1,13 @@
 "use client";
 
-import { isAuthenticationDisabled } from "@/modules/auth";
+import { getFirebaseClientAuth } from "@/shared/firebase/client";
 
-import { getFirebaseClientAuth } from "./client";
+import { isAuthenticationDisabled } from "../application/authentication-mode";
 
-export async function authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+export async function authenticatedFetch(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+): Promise<Response> {
   if (isAuthenticationDisabled()) {
     return fetch(input, init);
   }

@@ -14,7 +14,7 @@ import {
   type TeacherEvaluationContext,
 } from "@/modules/evaluation-plan";
 import type { EvaluationTemplate } from "@/modules/template";
-import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
+import { authenticatedFetch } from "@/modules/auth/client";
 import { buildRawEvaluationPlanDocument } from "../application/raw-evaluation-plan-document";
 import { RawEvaluationPlanDocument } from "./RawEvaluationPlanDocument";
 

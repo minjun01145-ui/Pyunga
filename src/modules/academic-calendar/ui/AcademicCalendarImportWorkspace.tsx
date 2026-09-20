@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
-import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
+import { authenticatedFetch } from "@/modules/auth/client";
 import { AiCallMetricsPanel, type AiCallMetrics } from "../../ai-review";
 import type { AcademicCalendarImportCandidate } from "../application/academic-calendar-import";
 import type { AcademicCalendarEventType, SchoolGrade, WrittenExamKind } from "../domain/academic-calendar-event";

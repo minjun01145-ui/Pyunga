@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { authenticatedFetch } from "@/shared/firebase/authenticated-fetch";
+import { authenticatedFetch } from "@/modules/auth/client";
 import { useUnsavedChangesGuard } from "@/shared/ui/useUnsavedChangesGuard";
 import type { EvaluationTemplate } from "../domain/evaluation-template";
 import type { EvaluationTemplateSectionConfig } from "../domain/evaluation-template-section-config";
