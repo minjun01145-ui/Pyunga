@@ -5,15 +5,15 @@
 - 업무 데이터 쓰기는 브라우저에서 Firestore로 직접 보내지 않는다.
 - 브라우저는 Firebase Authentication ID 토큰을 Next.js API에 전달한다.
 - 서버는 토큰을 검증한 뒤 `users/{uid}` 프로필에서 학교와 역할을 확인한다.
-- Firebase Admin SDK만 명명된 `pyunga` 데이터베이스에 업무 데이터를 기록한다.
+- Firebase Admin SDK만 명명된 `pyunga-seoul` 데이터베이스에 업무 데이터를 기록한다.
 - Firestore Security Rules는 브라우저의 모든 읽기와 쓰기를 차단한다.
 
 ## Firestore 인스턴스
 
 - 프로젝트: `inaday-74f68`
-- 데이터베이스 ID: `pyunga`
+- 데이터베이스 ID: `pyunga-seoul`
 - 에디션: Enterprise, Firestore Native mode
-- 리전: `us-east4`
+- 리전: `asia-northeast3` (Seoul)
 
 ## 사용자 프로필
 

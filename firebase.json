@@ -3,8 +3,8 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json",
     "edition": "enterprise",
-    "database": "pyunga",
-    "location": "us-east4"
+    "database": "pyunga-seoul",
+    "location": "asia-northeast3"
   },
   "apphosting": {
     "backendId": "pyunga",
