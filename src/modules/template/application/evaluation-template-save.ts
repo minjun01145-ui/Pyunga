@@ -49,10 +49,16 @@ export type EvaluationTemplateSaveRequest = {
 
 export function parseEvaluationTemplateSaveRequest(value: unknown): EvaluationTemplateSaveRequest | null {
   const parsed = evaluationTemplateSaveRequestSchema.safeParse(value);
-  if (!parsed.success) return null;
-  const template = parseEvaluationTemplateSaveInput(parsed.data.template);
-  return template
-    ? { template, expectedRevision: parsed.data.expectedRevision }
+  if (parsed.success) {
+    const template = parseEvaluationTemplateSaveInput(parsed.data.template);
+    return template
+      ? { template, expectedRevision: parsed.data.expectedRevision }
+      : null;
+  }
+
+  const legacyTemplate = parseEvaluationTemplateSaveInput(value);
+  return legacyTemplate
+    ? { template: legacyTemplate, expectedRevision: 0 }
     : null;
 }
 

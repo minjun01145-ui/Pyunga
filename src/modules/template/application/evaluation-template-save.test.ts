@@ -175,4 +175,13 @@ describe("parseEvaluationTemplateSaveInput", () => {
       template: { sections: [{ id: "root", title: "평가 세부계획", level: 1 }] },
     })).toBeNull();
   });
+
+  it("accepts the previous raw-template request only against the initial revision", () => {
+    const request = parseEvaluationTemplateSaveRequest({
+      sections: [{ id: "root", title: "평가 세부계획", level: 1 }],
+    });
+
+    expect(request?.expectedRevision).toBe(0);
+    expect(request?.template.sections[0].id).toBe("root");
+  });
 });
