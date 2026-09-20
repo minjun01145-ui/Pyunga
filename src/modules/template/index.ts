@@ -1,3 +1,4 @@
+export * from "./domain/default-evaluation-template";
 export * from "./domain/evaluation-template";
 export * from "./domain/evaluation-template-section-config";
 export * from "./domain/evaluation-template-navigation";

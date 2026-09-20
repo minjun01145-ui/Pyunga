@@ -1,6 +1,7 @@
 import { Timestamp } from "firebase-admin/firestore";
 
 import { getFirebaseAdminDatabase } from "@/shared/firebase/admin";
+import { createDefaultEvaluationTemplate } from "../domain/default-evaluation-template";
 import {
   normalizeEvaluationTemplateSections,
   type EvaluationTemplate,
@@ -55,7 +56,7 @@ export async function loadEvaluationTemplate(schoolId: string): Promise<Evaluati
 
 export async function loadEvaluationTemplateState(schoolId: string): Promise<EvaluationTemplateState> {
   const snapshot = await getTemplateDocument(schoolId).get();
-  if (!snapshot.exists) return { template: null, revision: 0 };
+  if (!snapshot.exists) return { template: createDefaultEvaluationTemplate(), revision: 0 };
 
   const data = snapshot.data();
   if (!data || !Array.isArray(data.sections)) {
