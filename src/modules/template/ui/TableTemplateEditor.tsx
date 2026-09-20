@@ -20,11 +20,15 @@ import {
   type TableTemplateInputSource,
   type TableTemplateSystemValue,
 } from "../domain/table-template";
+import {
+  changeTableTemplateCellBindingSource,
+  createCustomTableTemplateCellBinding,
+  type TableTemplateCellBinding,
+} from "../domain/table-template-binding";
 import styles from "./TableTemplateEditor.module.css";
 
 type TableTemplateEditorProps = {
   document: TableTemplateDocument;
-  allowAcademicCalendarSystemValues?: boolean;
   onChange: (document: TableTemplateDocument) => void;
 };
 
@@ -42,14 +46,6 @@ const inputSourceLabels: Record<TableTemplateInputSource, string> = {
   system: "시스템에서 자동으로 채움",
   teacher: "교과 담당자가 입력",
   custom: "교과 담당자가 입력 (학교 추가 항목)",
-};
-
-const systemValueLabels: Record<TableTemplateSystemValue, string> = {
-  "academic_calendar.period": "학사일정: 월/주 표시",
-  "academic_calendar.month": "학사일정: 월",
-  "academic_calendar.week": "학사일정: 주",
-  "academic_calendar.date_range": "학사일정: 기간(날짜)",
-  "academic_calendar.events": "학사일정: 주요 학사 일정",
 };
 
 const TableFieldAttributes = Extension.create({
@@ -75,7 +71,6 @@ const TableFieldAttributes = Extension.create({
 
 export function TableTemplateEditor({
   document,
-  allowAcademicCalendarSystemValues = false,
   onChange,
 }: TableTemplateEditorProps) {
   const [, setSelectionRevision] = useState(0);
@@ -207,7 +202,6 @@ export function TableTemplateEditor({
         <SelectedCellControls
           editor={editor}
           selection={selection}
-          allowAcademicCalendarSystemValues={allowAcademicCalendarSystemValues}
         />
       ) : (
         <p className={styles.selectionHint}>표의 셀을 선택하면 해당 셀의 입력 방식을 지정할 수 있습니다.</p>
@@ -229,11 +223,9 @@ type SelectedCell = {
 function SelectedCellControls({
   editor,
   selection,
-  allowAcademicCalendarSystemValues,
 }: {
   editor: Editor;
   selection: SelectedCell;
-  allowAcademicCalendarSystemValues: boolean;
 }) {
   const isInput = Boolean(selection.fieldKey);
 
@@ -251,15 +243,7 @@ function SelectedCellControls({
     ) {
       return;
     }
-    editor.chain()
-      .focus()
-      .setCellAttribute("fieldKey", null)
-      .setCellAttribute("fieldLabel", null)
-      .setCellAttribute("inputKind", null)
-      .setCellAttribute("inputSource", null)
-      .setCellAttribute("systemValue", null)
-      .setCellAttribute("required", null)
-      .run();
+    applyBindingToEditor(editor);
   }
 
   return (
@@ -308,43 +292,23 @@ function SelectedCellControls({
               value={selection.inputSource}
               onChange={(event) => {
                 const inputSource = parseInputSource(event.target.value);
-                editor.chain()
-                  .focus()
-                  .setCellAttribute("inputSource", inputSource)
-                  .setCellAttribute(
-                    "systemValue",
-                    inputSource === "system"
-                      ? selection.systemValue ?? "academic_calendar.period"
-                      : null,
-                  )
-                  .run();
+                const binding = selectedCellToBinding(selection);
+                if (binding) {
+                  applyBindingToEditor(
+                    editor,
+                    changeTableTemplateCellBindingSource(binding, inputSource),
+                  );
+                }
               }}
             >
-              {!allowAcademicCalendarSystemValues && selection.inputSource === "system" ? (
+              {selection.inputSource === "system" ? (
                 <option value="system" disabled>시스템 자동 입력 (교수학습표 전용)</option>
               ) : null}
               {Object.entries(inputSourceLabels)
-                .filter(([value]) => value !== "system" || allowAcademicCalendarSystemValues)
+                .filter(([value]) => value !== "system")
                 .map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
-          {allowAcademicCalendarSystemValues && selection.inputSource === "system" ? (
-            <label className="field">
-              <span>자동 입력할 학사일정 값</span>
-              <select
-                value={selection.systemValue ?? ""}
-                onChange={(event) => editor.commands.setCellAttribute(
-                  "systemValue",
-                  parseSystemValue(event.target.value),
-                )}
-              >
-                <option value="" disabled>자동값 선택</option>
-                {Object.entries(systemValueLabels).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </label>
-          ) : null}
           <label className={styles.requiredField}>
             <input
               type="checkbox"
@@ -406,16 +370,12 @@ function convertSelectedCellToInput(editor: Editor) {
   if (!resolvedCell || !cell || cell.type.name !== "tableCell") return;
 
   const suffix = createFieldSuffix();
+  const binding = createCustomTableTemplateCellBinding(`custom.${suffix}`);
   const paragraph = editor.schema.nodes.paragraph.create();
   const replacement = cell.type.create(
     {
       ...cell.attrs,
-      fieldKey: `custom.${suffix}`,
-      fieldLabel: "새 입력 항목",
-      inputKind: "text",
-      inputSource: "custom",
-      systemValue: null,
-      required: false,
+      ...bindingToEditorAttrs(binding),
     },
     paragraph,
   );
@@ -600,6 +560,44 @@ function readBindingFromAttrs(attrs: Record<string, unknown>): SelectedBinding |
   };
 }
 
+function selectedCellToBinding(selection: SelectedCell): TableTemplateCellBinding | undefined {
+  if (!selection.fieldKey) return undefined;
+  return {
+    fieldKey: selection.fieldKey,
+    fieldLabel: selection.fieldLabel ?? "입력 항목",
+    inputKind: selection.inputKind,
+    inputSource: selection.inputSource,
+    ...(selection.inputSource === "system" && selection.systemValue
+      ? { systemValue: selection.systemValue }
+      : {}),
+    required: selection.required,
+  };
+}
+
+function applyBindingToEditor(editor: Editor, binding?: TableTemplateCellBinding) {
+  const attrs = bindingToEditorAttrs(binding);
+  editor.chain()
+    .focus()
+    .setCellAttribute("fieldKey", attrs.fieldKey)
+    .setCellAttribute("fieldLabel", attrs.fieldLabel)
+    .setCellAttribute("inputKind", attrs.inputKind)
+    .setCellAttribute("inputSource", attrs.inputSource)
+    .setCellAttribute("systemValue", attrs.systemValue)
+    .setCellAttribute("required", attrs.required)
+    .run();
+}
+
+function bindingToEditorAttrs(binding?: TableTemplateCellBinding) {
+  return {
+    fieldKey: binding?.fieldKey ?? null,
+    fieldLabel: binding?.fieldLabel ?? null,
+    inputKind: binding?.inputKind ?? null,
+    inputSource: binding?.inputSource ?? null,
+    systemValue: binding?.inputSource === "system" ? binding.systemValue ?? null : null,
+    required: binding?.required ?? null,
+  };
+}
+
 function dataAttribute(attributeName: string) {
   return {
     default: null,
@@ -643,10 +641,6 @@ function parseOptionalSystemValue(value: unknown): TableTemplateSystemValue | un
     case "academic_calendar.events": return value;
     default: return undefined;
   }
-}
-
-function parseSystemValue(value: unknown): TableTemplateSystemValue {
-  return parseOptionalSystemValue(value) ?? "academic_calendar.period";
 }
 
 function createFieldSuffix(): string {

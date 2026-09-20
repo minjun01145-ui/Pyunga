@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { createDefaultEvaluationTemplateSectionConfig } from "../domain/evaluation-template-section-config";
 import { getTableTemplateFieldKeys } from "../domain/table-template";
-import { parseEvaluationTemplateSaveInput } from "./evaluation-template-save";
+import {
+  parseEvaluationTemplateSaveInput,
+  parseEvaluationTemplateSaveRequest,
+} from "./evaluation-template-save";
 
 describe("parseEvaluationTemplateSaveInput", () => {
   it("accepts and normalizes the seven document heading levels", () => {
@@ -75,7 +78,7 @@ describe("parseEvaluationTemplateSaveInput", () => {
     expect(template).toBeNull();
   });
 
-  it("round-trips a typed teaching-learning input format", () => {
+  it("round-trips a legacy teaching-learning input format through the compatibility boundary", () => {
     const template = parseEvaluationTemplateSaveInput({
       sections: [
         {
@@ -155,5 +158,21 @@ describe("parseEvaluationTemplateSaveInput", () => {
     });
 
     expect(template).toBeNull();
+  });
+
+  it("parses a versioned save request for optimistic concurrency", () => {
+    const request = parseEvaluationTemplateSaveRequest({
+      expectedRevision: 3,
+      template: {
+        sections: [{ id: "root", title: "평가 세부계획", level: 1 }],
+      },
+    });
+
+    expect(request?.expectedRevision).toBe(3);
+    expect(request?.template.sections[0].id).toBe("root");
+    expect(parseEvaluationTemplateSaveRequest({
+      expectedRevision: -1,
+      template: { sections: [{ id: "root", title: "평가 세부계획", level: 1 }] },
+    })).toBeNull();
   });
 });

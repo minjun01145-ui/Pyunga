@@ -3,6 +3,14 @@ import type {
   AcademicSemester,
   SchoolGrade,
 } from "./academic-calendar-event";
+import {
+  addAcademicCalendarDays,
+  createAcademicCalendarMonthIdentity,
+  createAcademicCalendarWeekIdentity,
+  formatAcademicCalendarDate,
+  parseAcademicCalendarDate,
+  startOfAcademicCalendarMondayWeek,
+} from "./academic-calendar-date";
 import type { AcademicCalendarPeriodUnit } from "./academic-calendar-period";
 
 export type AcademicCalendarTeachingPeriod = {
@@ -46,7 +54,7 @@ export function resolveAcademicCalendarSemesterRange(
       )
     : false;
   const endDate = firstVacation && !hasSchoolEventAfterVacation
-    ? formatDate(addDays(parseDate(firstVacation.startDate), -1))
+    ? formatAcademicCalendarDate(addAcademicCalendarDays(parseAcademicCalendarDate(firstVacation.startDate), -1))
     : latestNonVacationEnd;
 
   return { startDate, endDate };
@@ -93,28 +101,28 @@ function buildMonthPeriods(
   endDate: string,
   events: readonly AcademicCalendarEvent[],
 ): AcademicCalendarTeachingPeriod[] {
-  const start = parseDate(startDate);
-  const end = parseDate(endDate);
+  const start = parseAcademicCalendarDate(startDate);
+  const end = parseAcademicCalendarDate(endDate);
   let cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
   const finalMonth = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1);
   const periods: AcademicCalendarTeachingPeriod[] = [];
 
   while (cursor.getTime() <= finalMonth) {
-    const year = cursor.getUTCFullYear();
-    const monthIndex = cursor.getUTCMonth();
-    const month = monthIndex + 1;
-    const periodStart = formatDate(cursor);
-    const periodEnd = formatDate(new Date(Date.UTC(year, monthIndex + 1, 0)));
+    const identity = createAcademicCalendarMonthIdentity(cursor);
+    const periodStart = identity.startDate;
+    const periodEnd = identity.endDate;
     if (!isEntirelyVacation(events, periodStart, periodEnd)) {
       periods.push({
-        key: `${year}-${pad(month)}`,
-        label: `${month}월`,
-        month,
+        key: identity.key,
+        label: identity.label,
+        month: identity.month,
         startDate: periodStart,
         endDate: periodEnd,
         events: events.filter((event) => overlaps(event, periodStart, periodEnd)),
       });
     }
+    const year = cursor.getUTCFullYear();
+    const monthIndex = cursor.getUTCMonth();
     cursor = new Date(Date.UTC(year, monthIndex + 1, 1));
   }
   return periods;
@@ -125,28 +133,26 @@ function buildWeekPeriods(
   endDate: string,
   events: readonly AcademicCalendarEvent[],
 ): AcademicCalendarTeachingPeriod[] {
-  const end = parseDate(endDate);
-  let cursor = startOfMondayWeek(parseDate(startDate));
+  const end = parseAcademicCalendarDate(endDate);
+  let cursor = startOfAcademicCalendarMondayWeek(parseAcademicCalendarDate(startDate));
   const periods: AcademicCalendarTeachingPeriod[] = [];
 
   while (cursor <= end) {
-    const thursday = addDays(cursor, 3);
-    const month = thursday.getUTCMonth() + 1;
-    const week = Math.ceil(thursday.getUTCDate() / 7);
-    const periodStart = formatDate(cursor);
-    const periodEnd = formatDate(addDays(cursor, 6));
+    const identity = createAcademicCalendarWeekIdentity(cursor);
+    const periodStart = identity.startDate;
+    const periodEnd = identity.endDate;
     if (!isEntirelyVacation(events, periodStart, periodEnd)) {
       periods.push({
-        key: `${thursday.getUTCFullYear()}-${pad(month)}-w${week}`,
-        label: `${month}월 ${week}주`,
-        month,
-        week,
+        key: identity.key,
+        label: identity.label,
+        month: identity.month,
+        week: identity.week,
         startDate: periodStart,
         endDate: periodEnd,
         events: events.filter((event) => overlaps(event, periodStart, periodEnd)),
       });
     }
-    cursor = addDays(cursor, 7);
+    cursor = addAcademicCalendarDays(cursor, 7);
   }
   return periods;
 }
@@ -178,27 +184,4 @@ function formatEventDate(event: Pick<AcademicCalendarEvent, "startDate" | "endDa
 function formatMonthDay(value: string): string {
   const [, month, day] = value.split("-").map(Number);
   return `${month}/${day}`;
-}
-
-function startOfMondayWeek(date: Date): Date {
-  const day = date.getUTCDay();
-  return addDays(date, -(day === 0 ? 6 : day - 1));
-}
-
-function parseDate(value: string): Date {
-  return new Date(`${value}T00:00:00Z`);
-}
-
-function addDays(date: Date, days: number): Date {
-  const result = new Date(date);
-  result.setUTCDate(result.getUTCDate() + days);
-  return result;
-}
-
-function formatDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function pad(value: number): string {
-  return String(value).padStart(2, "0");
 }

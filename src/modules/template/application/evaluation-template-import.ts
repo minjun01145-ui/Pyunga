@@ -9,9 +9,7 @@ import {
   type EvaluationTemplateSectionInput,
   type EvaluationTemplateSectionLevel,
 } from "../domain/evaluation-template";
-import {
-  parseEvaluationTemplateSectionConfig,
-} from "../domain/evaluation-template-section-config";
+import { parseCompatibleEvaluationTemplateSectionConfig } from "../domain/evaluation-template-section-config-compat";
 
 const aiHeadingSchema = z.object({
   title: z.string().trim().min(1).max(120),
@@ -126,7 +124,9 @@ export async function importEvaluationTemplateFromText(params: {
   const inputs = removeAdjacentDuplicates(
     parsed.data.headings.map((heading, index): EvaluationTemplateSectionInput => {
       const title = cleanHeadingTitle(heading.title);
-      const parsedConfig = heading.config ? parseEvaluationTemplateSectionConfig(heading.config) : undefined;
+      const parsedConfig = heading.config
+        ? parseCompatibleEvaluationTemplateSectionConfig(heading.config)
+        : undefined;
       if (heading.config && !parsedConfig) {
         warnings.push(`${title}: 표 또는 입력 양식 분석 결과가 올바르지 않아 양식 초안을 제외했습니다.`);
       }

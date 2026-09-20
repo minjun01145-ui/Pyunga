@@ -17,6 +17,12 @@ import {
   type TableTemplateSystemValue,
 } from "../domain/table-template";
 import type { TeachingLearningTableConfig } from "../domain/evaluation-template-section-config";
+import {
+  applyTableTemplateCellBinding,
+  changeTableTemplateCellBindingSource,
+  createAcademicCalendarTableTemplateCellBinding,
+  readTableTemplateCellBinding,
+} from "../domain/table-template-binding";
 
 import styles from "./TeachingLearningCalendarPreview.module.css";
 
@@ -275,26 +281,24 @@ function updateCalendarColumnBinding(
       ...row,
       content: row.content.map((cell, currentCellIndex) => {
         if (currentCellIndex !== cellIndex) return cell;
+        const currentBinding = readTableTemplateCellBinding(cell.attrs);
         if (!systemValue) {
-          if (!cell.attrs.fieldKey) return cell;
-          const attrs = { ...cell.attrs };
-          delete attrs.systemValue;
+          if (!currentBinding) return cell;
           return {
             ...cell,
-            attrs: { ...attrs, inputSource: "teacher" as const },
+            attrs: applyTableTemplateCellBinding(
+              cell.attrs,
+              changeTableTemplateCellBindingSource(currentBinding, "teacher"),
+            ),
           };
         }
+        const binding = createAcademicCalendarTableTemplateCellBinding(
+          currentBinding?.fieldKey ?? `calendar.column${selectedColumn + 1}`,
+          systemValue,
+        );
         return {
           ...cell,
-          attrs: {
-            ...cell.attrs,
-            fieldKey: cell.attrs.fieldKey ?? `calendar.column${selectedColumn + 1}`,
-            fieldLabel: systemValueLabel(systemValue),
-            inputKind: systemValue === "academic_calendar.events" ? "multiline" as const : "text" as const,
-            inputSource: "system" as const,
-            systemValue,
-            required: false,
-          },
+          attrs: applyTableTemplateCellBinding(cell.attrs, binding),
           content: [{ type: "paragraph" as const }],
         };
       }),
@@ -302,10 +306,6 @@ function updateCalendarColumnBinding(
   });
 
   return { ...table, content: [{ ...table.content[0], content: rows }] };
-}
-
-function systemValueLabel(value: TableTemplateSystemValue): string {
-  return SYSTEM_VALUE_OPTIONS.find((option) => option.value === value)?.label ?? "학사일정";
 }
 
 function parseSystemValue(value: string): TableTemplateSystemValue | undefined {

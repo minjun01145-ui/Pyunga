@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { EVALUATION_AUTHORING_ROLES } from "@/modules/auth";
 import { RequestAuthenticationError, requireAuthenticatedProfile } from "@/modules/auth/server";
 import { performanceAssessmentDraftSchema } from "@/modules/performance-assessment/application/performance-assessment-draft";
 import { savePerformanceAssessmentDraft } from "@/modules/performance-assessment/infrastructure/firestore-performance-assessment-draft";
@@ -8,7 +9,7 @@ export const runtime = "nodejs";
 
 export async function PUT(request: Request, context: { params: Promise<{ assessmentId: string }> }) {
   try {
-    const profile = await requireAuthenticatedProfile(request, ["teacher", "evaluation_admin", "school_admin"]);
+    const profile = await requireAuthenticatedProfile(request, EVALUATION_AUTHORING_ROLES);
     const { assessmentId } = await context.params;
     const parsed = performanceAssessmentDraftSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success || parsed.data.id !== assessmentId) {

@@ -7,37 +7,55 @@ import {
   type EvaluationTemplateSectionInput,
   type EvaluationTemplateSource,
 } from "../domain/evaluation-template";
-import { parseEvaluationTemplateSectionConfig } from "../domain/evaluation-template-section-config";
+import { parseCompatibleEvaluationTemplateSectionConfig } from "../domain/evaluation-template-section-config-compat";
 
 const TEMPLATE_DOCUMENT_ID = "current";
+
+export class EvaluationTemplateRevisionConflictError extends Error {
+  constructor() {
+    super("평가계획 양식이 다른 화면에서 먼저 변경되었습니다. 최신 내용을 다시 불러온 뒤 저장해 주세요.");
+    this.name = "EvaluationTemplateRevisionConflictError";
+  }
+}
+
+export type EvaluationTemplateState = {
+  template: EvaluationTemplate | null;
+  revision: number;
+};
 
 export async function saveEvaluationTemplate(params: {
   schoolId: string;
   userId: string;
   template: EvaluationTemplate;
-}): Promise<void> {
+  expectedRevision: number;
+}): Promise<number> {
+  const database = getFirebaseAdminDatabase();
   const document = getTemplateDocument(params.schoolId);
-  await document.set({
-    ...(params.template.documentTitle ? { documentTitle: params.template.documentTitle } : {}),
-    sections: params.template.sections.map((section) => ({
-      id: section.id,
-      title: section.title,
-      level: section.level,
-      teacherEditableTitle: section.teacherEditableTitle,
-      order: section.order,
-      ...(section.parentId ? { parentId: section.parentId } : {}),
-      ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
-      ...(section.config ? { config: section.config } : {}),
-    })),
-    ...(params.template.source ? { source: params.template.source } : {}),
-    updatedBy: params.userId,
-    updatedAt: Timestamp.now(),
+  return database.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(document);
+    const currentRevision = snapshot.exists ? parseStoredRevision(snapshot.data()) : 0;
+    if (currentRevision !== params.expectedRevision) {
+      throw new EvaluationTemplateRevisionConflictError();
+    }
+
+    const nextRevision = currentRevision + 1;
+    transaction.set(document, {
+      ...serializeEvaluationTemplate(params.template),
+      revision: nextRevision,
+      updatedBy: params.userId,
+      updatedAt: Timestamp.now(),
+    });
+    return nextRevision;
   });
 }
 
 export async function loadEvaluationTemplate(schoolId: string): Promise<EvaluationTemplate | null> {
+  return (await loadEvaluationTemplateState(schoolId)).template;
+}
+
+export async function loadEvaluationTemplateState(schoolId: string): Promise<EvaluationTemplateState> {
   const snapshot = await getTemplateDocument(schoolId).get();
-  if (!snapshot.exists) return null;
+  if (!snapshot.exists) return { template: null, revision: 0 };
 
   const data = snapshot.data();
   if (!data || !Array.isArray(data.sections)) {
@@ -54,10 +72,39 @@ export async function loadEvaluationTemplate(schoolId: string): Promise<Evaluati
   }
 
   return {
-    ...(documentTitle ? { documentTitle } : {}),
-    sections,
-    ...(source ? { source } : {}),
+    revision: parseStoredRevision(data),
+    template: {
+      ...(documentTitle ? { documentTitle } : {}),
+      sections,
+      ...(source ? { source } : {}),
+    },
   };
+}
+
+function serializeEvaluationTemplate(template: EvaluationTemplate) {
+  return {
+    ...(template.documentTitle ? { documentTitle: template.documentTitle } : {}),
+    sections: template.sections.map((section) => ({
+      id: section.id,
+      title: section.title,
+      level: section.level,
+      teacherEditableTitle: section.teacherEditableTitle,
+      order: section.order,
+      ...(section.parentId ? { parentId: section.parentId } : {}),
+      ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
+      ...(section.config ? { config: section.config } : {}),
+    })),
+    ...(template.source ? { source: template.source } : {}),
+  };
+}
+
+function parseStoredRevision(data: FirebaseFirestore.DocumentData | undefined): number {
+  const revision = data?.revision;
+  if (revision === undefined) return 0;
+  if (typeof revision !== "number" || !Number.isInteger(revision) || revision < 0) {
+    throw new Error("Stored evaluation template revision is invalid");
+  }
+  return revision;
 }
 
 function getTemplateDocument(schoolId: string) {
@@ -78,7 +125,9 @@ function parseStoredSection(value: unknown): EvaluationTemplateSectionInput {
   const level = value.level;
   const teacherEditableTitle = value.teacherEditableTitle;
   const sourcePage = value.sourcePage;
-  const config = value.config === undefined ? undefined : parseEvaluationTemplateSectionConfig(value.config);
+  const config = value.config === undefined
+    ? undefined
+    : parseCompatibleEvaluationTemplateSectionConfig(value.config);
 
   if (
     typeof id !== "string" ||

@@ -19,12 +19,14 @@ type ImportApiResponse = Omit<EvaluationTemplateImportResult, "source"> & {
 
 type TemplateApiResponse = {
   template: EvaluationTemplate | null;
+  revision: number;
 };
 
 type ApiErrorResponse = { error?: string };
 
 export function EvaluationTemplateSectionWorkspace() {
   const [template, setTemplate] = useState<EvaluationTemplate | null>(null);
+  const [revision, setRevision] = useState(0);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -40,8 +42,9 @@ export function EvaluationTemplateSectionWorkspace() {
         const response = await authenticatedFetch("/api/admin/evaluation/template/major-sections");
         if (!response.ok) return;
         const body = (await response.json()) as TemplateApiResponse;
-        if (!cancelled && body.template) {
-          setTemplate(body.template);
+        if (!cancelled) {
+          setRevision(body.revision);
+          if (body.template) setTemplate(body.template);
         }
       } catch {
         return;
@@ -115,23 +118,27 @@ export function EvaluationTemplateSectionWorkspace() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          documentTitle: template.documentTitle,
-          sections: template.sections.map((section) => ({
-            id: section.id,
-            title: section.title,
-            level: section.level,
-            teacherEditableTitle: section.teacherEditableTitle,
-            sourcePage: section.sourcePage,
-            config: section.config,
-          })),
-          source: template.source,
+          expectedRevision: revision,
+          template: {
+            documentTitle: template.documentTitle,
+            sections: template.sections.map((section) => ({
+              id: section.id,
+              title: section.title,
+              level: section.level,
+              teacherEditableTitle: section.teacherEditableTitle,
+              sourcePage: section.sourcePage,
+              config: section.config,
+            })),
+            source: template.source,
+          },
         }),
       });
-      const body = (await response.json()) as { savedCount?: number; error?: string };
+      const body = (await response.json()) as { savedCount?: number; revision?: number; error?: string };
       if (!response.ok) {
         throw new Error(body.error ?? "평가계획 양식 저장에 실패했습니다.");
       }
 
+      if (typeof body.revision === "number") setRevision(body.revision);
       setSaveMessage(`${body.savedCount ?? template.sections.length}개 공통 양식 항목을 저장했습니다.`);
       window.dispatchEvent(new Event("evaluation-template-saved"));
     } catch (saveError) {

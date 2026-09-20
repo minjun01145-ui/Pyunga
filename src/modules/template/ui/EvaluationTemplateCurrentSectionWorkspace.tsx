@@ -12,6 +12,7 @@ import styles from "./EvaluationTemplateCurrentSectionWorkspace.module.css";
 
 type TemplateApiResponse = {
   template: EvaluationTemplate | null;
+  revision: number;
 };
 
 type EvaluationTemplateCurrentSectionWorkspaceProps = {
@@ -22,6 +23,7 @@ export function EvaluationTemplateCurrentSectionWorkspace({
   sectionId,
 }: EvaluationTemplateCurrentSectionWorkspaceProps) {
   const [template, setTemplate] = useState<EvaluationTemplate | null>(null);
+  const [revision, setRevision] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -39,6 +41,7 @@ export function EvaluationTemplateCurrentSectionWorkspace({
         const body = (await response.json()) as TemplateApiResponse;
         const selected = body.template?.sections.find((item) => item.id === sectionId) ?? null;
         if (cancelled) return;
+        setRevision(body.revision);
 
         if (!selected || !body.template) {
           setError("선택한 양식 항목을 찾을 수 없습니다.");
@@ -103,10 +106,11 @@ export function EvaluationTemplateCurrentSectionWorkspace({
       const response = await authenticatedFetch("/api/admin/evaluation/template/major-sections", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(template),
+        body: JSON.stringify({ template, expectedRevision: revision }),
       });
-      const body = (await response.json()) as { error?: string };
+      const body = (await response.json()) as { revision?: number; error?: string };
       if (!response.ok) throw new Error(body.error ?? "양식 저장에 실패했습니다.");
+      if (typeof body.revision === "number") setRevision(body.revision);
       setIsDirty(false);
       setSaveMessage("이 항목의 입력 양식을 저장했습니다.");
       window.dispatchEvent(new Event("evaluation-template-saved"));

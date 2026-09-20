@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { loadAcademicCalendar } from "@/modules/academic-calendar/server";
-import { isAuthenticationDisabled } from "@/modules/auth";
+import { EVALUATION_AUTHORING_ROLES, isAuthenticationDisabled } from "@/modules/auth";
 import { RequestAuthenticationError, requireAuthenticatedProfile } from "@/modules/auth/server";
 import {
   resolveTeacherEvaluationContext,
@@ -11,11 +11,9 @@ import { loadEvaluationTemplate } from "@/modules/template/server";
 
 export const runtime = "nodejs";
 
-const ALLOWED_ROLES = ["teacher", "evaluation_admin", "school_admin"] as const;
-
 export async function GET(request: Request) {
   try {
-    const profile = await requireAuthenticatedProfile(request, ALLOWED_ROLES);
+    const profile = await requireAuthenticatedProfile(request, EVALUATION_AUTHORING_ROLES);
     const teacherContext = resolveTeacherEvaluationContext({ demoMode: isAuthenticationDisabled() });
     const [template, calendarEvents] = await Promise.all([
       loadEvaluationTemplate(profile.schoolId),

@@ -37,6 +37,25 @@ const rawEvaluationTemplateSaveSchema = z.object({
   source: sourceSchema.optional(),
 });
 
+const evaluationTemplateSaveRequestSchema = z.object({
+  template: z.unknown(),
+  expectedRevision: z.number().int().min(0).max(1_000_000_000),
+});
+
+export type EvaluationTemplateSaveRequest = {
+  template: EvaluationTemplate;
+  expectedRevision: number;
+};
+
+export function parseEvaluationTemplateSaveRequest(value: unknown): EvaluationTemplateSaveRequest | null {
+  const parsed = evaluationTemplateSaveRequestSchema.safeParse(value);
+  if (!parsed.success) return null;
+  const template = parseEvaluationTemplateSaveInput(parsed.data.template);
+  return template
+    ? { template, expectedRevision: parsed.data.expectedRevision }
+    : null;
+}
+
 export function parseEvaluationTemplateSaveInput(value: unknown): EvaluationTemplate | null {
   const parsed = rawEvaluationTemplateSaveSchema.safeParse(value);
   if (!parsed.success) return null;

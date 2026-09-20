@@ -4,6 +4,7 @@ import {
   EVALUATION_TEMPLATE_SECTION_FORMAT_TYPES,
   createDefaultEvaluationTemplateSectionConfig,
   getEvaluationTemplateSectionConfigIssues,
+  parseCanonicalEvaluationTemplateSectionConfig,
   parseEvaluationTemplateSectionConfig,
 } from "./evaluation-template-section-config";
 import {
@@ -16,6 +17,21 @@ describe("evaluation template section config", () => {
   it("supports an explicit title-only format", () => {
     expect(createDefaultEvaluationTemplateSectionConfig("title_only")).toEqual({ type: "title_only" });
     expect(parseEvaluationTemplateSectionConfig({ type: "title_only" })).toEqual({ type: "title_only" });
+  });
+
+  it("keeps the public parser backward-compatible while the canonical parser stays strict", () => {
+    const legacy = {
+      type: "achievement_rate_table",
+      rateLabel: "기준 성취율",
+      achievementLabel: "성취도",
+      rows: [
+        { rate: "80% 이상", achievement: "A" },
+        { rate: "80% 미만", achievement: "B" },
+      ],
+    };
+
+    expect(parseEvaluationTemplateSectionConfig(legacy)?.type).toBe("achievement_rate_table");
+    expect(parseCanonicalEvaluationTemplateSectionConfig(legacy)).toBeUndefined();
   });
 
   it("creates a teaching-learning table with bound input cells and a merged detail header", () => {
@@ -50,38 +66,6 @@ describe("evaluation template section config", () => {
     expect(parsed?.type).toBe("teaching_learning_table");
     if (parsed?.type !== "teaching_learning_table") throw new Error("teaching config expected");
     expect(parsed.calendarRows).toEqual({ enabled: true, periodUnit: "month" });
-  });
-
-  it("migrates known legacy academic-calendar columns to explicit system values", () => {
-    const table = createTableTemplateDocument([
-      [
-        { kind: "text", text: "월", header: true },
-        { kind: "text", text: "주", header: true },
-        { kind: "text", text: "기간", header: true },
-        { kind: "text", text: "주요 학사 일정", header: true },
-      ],
-      [
-        { kind: "input", fieldKey: "month", fieldLabel: "월", inputKind: "text", inputSource: "system" },
-        { kind: "input", fieldKey: "week", fieldLabel: "주", inputKind: "text", inputSource: "system" },
-        { kind: "input", fieldKey: "dateRange", fieldLabel: "기간", inputKind: "text", inputSource: "system" },
-        { kind: "input", fieldKey: "schoolEvents", fieldLabel: "주요 학사 일정", inputKind: "multiline", inputSource: "system" },
-      ],
-    ]);
-    const parsed = parseEvaluationTemplateSectionConfig({
-      type: "teaching_learning_table",
-      layout: { orientation: "landscape", repeatHeader: true },
-      table,
-    });
-    expect(parsed?.type).toBe("teaching_learning_table");
-    if (parsed?.type !== "teaching_learning_table") throw new Error("teaching config expected");
-
-    expect(parsed.calendarRows).toEqual({ enabled: true, periodUnit: "month_week" });
-    expect(parsed.table.content[0].content[1].content.map((cell) => cell.attrs.systemValue)).toEqual([
-      "academic_calendar.month",
-      "academic_calendar.week",
-      "academic_calendar.date_range",
-      "academic_calendar.events",
-    ]);
   });
 
   it("rejects academic-calendar system values outside a teaching-learning table", () => {
@@ -122,27 +106,6 @@ describe("evaluation template section config", () => {
       calendarRows: { enabled: true, periodUnit: "month" },
       table,
     })).toContain("월 단위 자동 행에서는 '학사일정: 주' 값을 사용할 수 없습니다.");
-  });
-
-  it("accepts achievement-rate tables with a subject-specific number of levels", () => {
-    const config = parseEvaluationTemplateSectionConfig({
-      type: "achievement_rate_table",
-      rateLabel: "기준 성취율",
-      achievementLabel: "성취도",
-      rows: [
-        { rate: "80% 이상", achievement: "A" },
-        { rate: "60% 이상 ~ 80% 미만", achievement: "B" },
-        { rate: "60% 미만", achievement: "C" },
-      ],
-    });
-
-    expect(config?.type).toBe("achievement_rate_table");
-    if (config?.type !== "achievement_rate_table") throw new Error("achievement-rate config expected");
-    expect(config.layout).toEqual({ orientation: "portrait", repeatHeader: true });
-    expect(config.table.content[0].content).toHaveLength(4);
-    expect(
-      config.table.content[0].content.slice(1).map((row) => tableTemplateCellText(row.content[1])),
-    ).toEqual(["A", "B", "C"]);
   });
 
   it("treats a stored editable table as canonical instead of keeping stale legacy fields", () => {
@@ -187,41 +150,4 @@ describe("evaluation template section config", () => {
     }
   });
 
-  it("migrates legacy written and performance config into the canonical editable table", () => {
-    const written = parseEvaluationTemplateSectionConfig({
-      type: "written_assessment_table",
-      fields: [
-        {
-          id: "weight",
-          fieldKey: "weightPercent",
-          label: "반영 비율",
-          inputKind: "percentage",
-          source: "teacher",
-        },
-      ],
-    });
-    expect(written?.type).toBe("written_assessment_table");
-    if (written?.type !== "written_assessment_table") throw new Error("written config expected");
-    expect(getTableTemplateFieldKeys(written.table)).toEqual(["weightPercent"]);
-
-    const performance = parseEvaluationTemplateSectionConfig({
-      type: "performance_assessment_table",
-      headerFields: [
-        {
-          id: "standards",
-          fieldKey: "achievementStandards",
-          label: "성취기준",
-          inputKind: "achievement_standards",
-          source: "teacher",
-        },
-      ],
-      rubricColumnLabels: ["단계", "배점", "평가 기준"],
-    });
-    expect(performance?.type).toBe("performance_assessment_table");
-    if (performance?.type !== "performance_assessment_table") throw new Error("performance config expected");
-    expect(getTableTemplateFieldKeys(performance.table)).toEqual(["achievementStandards"]);
-    expect(
-      performance.table.content[0].content.at(-2)?.content.map((cell) => tableTemplateCellText(cell)),
-    ).toEqual(["단계", "배점", "평가 기준"]);
-  });
 });

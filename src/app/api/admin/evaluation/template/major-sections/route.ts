@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 
+import { EVALUATION_MANAGEMENT_ROLES } from "@/modules/auth";
 import { RequestAuthenticationError, requireAuthenticatedProfile } from "@/modules/auth/server";
 import {
-  loadEvaluationTemplate,
-  parseEvaluationTemplateSaveInput,
+  EvaluationTemplateRevisionConflictError,
+  loadEvaluationTemplateState,
+  parseEvaluationTemplateSaveRequest,
   saveEvaluationTemplate,
 } from "@/modules/template/server";
 
@@ -11,9 +13,9 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
-    const profile = await requireAuthenticatedProfile(request, ["school_admin", "evaluation_admin"]);
-    const template = await loadEvaluationTemplate(profile.schoolId);
-    return NextResponse.json({ template });
+    const profile = await requireAuthenticatedProfile(request, EVALUATION_MANAGEMENT_ROLES);
+    const state = await loadEvaluationTemplateState(profile.schoolId);
+    return NextResponse.json(state);
   } catch (error) {
     if (error instanceof RequestAuthenticationError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
@@ -26,22 +28,29 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const profile = await requireAuthenticatedProfile(request, ["school_admin", "evaluation_admin"]);
-    const template = parseEvaluationTemplateSaveInput(await request.json().catch(() => null));
-    if (!template) {
+    const profile = await requireAuthenticatedProfile(request, EVALUATION_MANAGEMENT_ROLES);
+    const saveRequest = parseEvaluationTemplateSaveRequest(await request.json().catch(() => null));
+    if (!saveRequest) {
       return NextResponse.json({ error: "저장할 평가계획 양식 데이터가 올바르지 않습니다." }, { status: 400 });
     }
 
-    await saveEvaluationTemplate({
+    const revision = await saveEvaluationTemplate({
       schoolId: profile.schoolId,
       userId: profile.id,
-      template,
+      template: saveRequest.template,
+      expectedRevision: saveRequest.expectedRevision,
     });
 
-    return NextResponse.json({ savedCount: template.sections.length });
+    return NextResponse.json({
+      savedCount: saveRequest.template.sections.length,
+      revision,
+    });
   } catch (error) {
     if (error instanceof RequestAuthenticationError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    if (error instanceof EvaluationTemplateRevisionConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
     }
 
     console.error("Evaluation template save failed", error);

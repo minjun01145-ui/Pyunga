@@ -5,13 +5,14 @@ import {
   loadAcademicCalendar,
   saveAcademicCalendar,
 } from "@/modules/academic-calendar/infrastructure/firestore-academic-calendar";
+import { EVALUATION_MANAGEMENT_ROLES } from "@/modules/auth";
 import { RequestAuthenticationError, requireAuthenticatedProfile } from "@/modules/auth/server";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
-    const profile = await requireAuthenticatedProfile(request, ["school_admin", "evaluation_admin"]);
+    const profile = await requireAuthenticatedProfile(request, EVALUATION_MANAGEMENT_ROLES);
     const url = new URL(request.url);
     const academicYear = Number(url.searchParams.get("academicYear"));
     if (!Number.isInteger(academicYear) || academicYear < 2000 || academicYear > 2100) {
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const profile = await requireAuthenticatedProfile(request, ["school_admin", "evaluation_admin"]);
+    const profile = await requireAuthenticatedProfile(request, EVALUATION_MANAGEMENT_ROLES);
     const parsed = academicCalendarSaveSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) {
       return NextResponse.json({ error: "저장할 학사일정 데이터가 올바르지 않습니다." }, { status: 400 });

@@ -130,7 +130,6 @@ export function EvaluationTemplateSectionFormatEditor({
           <TableTemplateEditor
             key={config.type}
             document={config.table}
-            allowAcademicCalendarSystemValues={false}
             onChange={(table) => handleConfigChange(withTable(config, table))}
           />
         </>

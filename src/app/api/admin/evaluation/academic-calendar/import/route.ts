@@ -7,6 +7,7 @@ import {
   selectAcademicCalendarSourceText,
 } from "@/modules/academic-calendar/server";
 import { createOllamaJsonClientFromEnv, OllamaAiError } from "@/modules/ai-review/server";
+import { EVALUATION_MANAGEMENT_ROLES } from "@/modules/auth";
 import { RequestAuthenticationError, requireAuthenticatedProfile } from "@/modules/auth/server";
 
 export const runtime = "nodejs";
@@ -15,7 +16,7 @@ const ACADEMIC_CALENDAR_AI_TIMEOUT_MS = 240_000;
 
 export async function POST(request: Request) {
   try {
-    await requireAuthenticatedProfile(request, ["school_admin", "evaluation_admin"]);
+    await requireAuthenticatedProfile(request, EVALUATION_MANAGEMENT_ROLES);
     const formData = await request.formData();
     const file = formData.get("file");
     const academicYear = Number(formData.get("academicYear"));

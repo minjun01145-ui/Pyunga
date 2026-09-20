@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createOllamaTextClientFromEnv, OllamaAiError } from "@/modules/ai-review/server";
+import { EVALUATION_MANAGEMENT_ROLES } from "@/modules/auth";
 import { RequestAuthenticationError, requireAuthenticatedProfile } from "@/modules/auth/server";
 
 export const runtime = "nodejs";
@@ -32,7 +33,7 @@ const requestCounts = new Map<string, RateLimitEntry>();
 
 export async function POST(request: Request) {
   try {
-    await requireAuthenticatedProfile(request, ["school_admin", "evaluation_admin"]);
+    await requireAuthenticatedProfile(request, EVALUATION_MANAGEMENT_ROLES);
   } catch (error) {
     if (error instanceof RequestAuthenticationError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
