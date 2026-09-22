@@ -1,9 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { isAuthenticationDisabled } from "./authentication-mode";
 
 describe("isAuthenticationDisabled", () => {
-  it("disables authentication while account management is under development", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("keeps authentication disabled when the deployment flag is absent", () => {
     expect(isAuthenticationDisabled()).toBe(true);
+  });
+
+  it("enables authentication when the deployment flag is true", () => {
+    vi.stubEnv("NEXT_PUBLIC_AUTHENTICATION_ENABLED", "true");
+    expect(isAuthenticationDisabled()).toBe(false);
   });
 });

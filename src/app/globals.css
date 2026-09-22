@@ -526,6 +526,45 @@ textarea {
   width: auto;
 }
 
+.user-grade-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.user-grade-field legend {
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.user-grade-options {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 14px;
+}
+
+.user-grade-options label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.user-grade-options input {
+  width: auto;
+}
+
+.credential-result p {
+  margin: 6px 0 0;
+}
+
+.user-management-table {
+  min-width: 760px;
+}
+
 .calendar-date-inputs {
   display: grid;
   grid-template-columns: 1fr;

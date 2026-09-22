@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import type { AcademicCalendarEvent } from "@/modules/academic-calendar";
@@ -9,6 +10,10 @@ import {
   createEmptyEvaluationPlanDraft,
   getEvaluationPlanDraftTemplateIssues,
   getEvaluationPlanTemplateSignature,
+  EVALUATION_PLAN_STATUS_LABELS,
+  getEvaluationPlanSubmissionIssues,
+  type EvaluationPlanWorkspaceData,
+  type SavedEvaluationPlan,
   type EvaluationPlanDraft,
   type EvaluationPlanDraftFieldValue,
   type EvaluationPlanDraftSection,
@@ -26,13 +31,6 @@ import {
 import { EvaluationPlanTemplateTable } from "./EvaluationPlanTemplateTable";
 import styles from "./EvaluationPlanWorkspace.module.css";
 
-type WorkspaceApiResponse = {
-  template: EvaluationTemplate | null;
-  teacherContext: TeacherEvaluationContext;
-  calendarEvents: AcademicCalendarEvent[];
-  error?: string;
-};
-
 export function EvaluationPlanWorkspace() {
   const router = useRouter();
   const [template, setTemplate] = useState<EvaluationTemplate | null>(null);
@@ -46,19 +44,39 @@ export function EvaluationPlanWorkspace() {
   const [storageNotice, setStorageNotice] = useState<string | null>(null);
   const [hasInvalidStorage, setHasInvalidStorage] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedPlan, setSavedPlan] = useState<SavedEvaluationPlan | null>(null);
+  const [templateRevision, setTemplateRevision] = useState(0);
+  const [persistence, setPersistence] = useState<"browser" | "server">("browser");
+  const [teachingGrades, setTeachingGrades] = useState<number[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadWorkspace() {
       try {
-        const response = await authenticatedFetch("/api/teacher/evaluation-plan");
-        const body = (await response.json()) as WorkspaceApiResponse;
+        const response = await authenticatedFetch(`/api/teacher/evaluation-plan${window.location.search}`);
+        const body = (await response.json()) as EvaluationPlanWorkspaceData;
         if (!response.ok) throw new Error(body.error ?? "평가계획 작성 자료를 불러오지 못했습니다.");
         if (cancelled) return;
         setTemplate(body.template);
         setTeacherContext(body.teacherContext);
         setCalendarEvents(body.calendarEvents);
+        setTemplateRevision(body.templateRevision);
+        setPersistence(body.persistence);
+        setTeachingGrades(body.teachingGrades);
+        setSavedPlan(body.savedPlan);
+        if (body.persistence === "server") {
+          setDraft(body.savedPlan?.draft ?? createEmptyEvaluationPlanDraft(body.teacherContext));
+          if (body.savedPlan?.status === "submitted" || body.savedPlan?.status === "approved") {
+            setTemplate(body.savedPlan.template);
+            setCalendarEvents(body.savedPlan.calendarEvents);
+            return;
+          }
+          if (body.savedPlan && body.template && body.savedPlan.templateSignature !== getEvaluationPlanTemplateSignature(body.template, body.teacherContext)) {
+            setStorageNotice("학교 양식이 변경되었습니다. 저장된 내용은 보존되어 있습니다. 현재 양식의 입력칸을 확인한 뒤 저장해 주세요.");
+          }
+          return;
+        }
         const bootstrap = loadEvaluationPlanDraftBootstrap(
           window.localStorage,
           body.template,
@@ -156,43 +174,48 @@ export function EvaluationPlanWorkspace() {
     }));
   }
 
-  async function saveDraft(openPreview: boolean) {
+  async function saveDraft(openPreview: boolean, submit = false) {
     setIsSaving(true);
     setMessage(null);
     setError(null);
     try {
       if (!template || !teacherContext) return;
-      const templateIssues = getEvaluationPlanDraftTemplateIssues(template, draft, {
-        teacherContext,
-        calendarEvents,
-      });
+      const templateIssues = submit ? getEvaluationPlanSubmissionIssues(template, draft, teacherContext, calendarEvents) : [];
       if (templateIssues.length > 0) {
         const remainingCount = templateIssues.length - 1;
         setError(
           remainingCount > 0
-            ? `${templateIssues[0].message} 외 ${remainingCount}건을 확인해 주세요.`
-            : templateIssues[0].message,
+            ? `${templateIssues[0]} 외 ${remainingCount}건을 확인해 주세요.`
+            : templateIssues[0],
         );
         return;
       }
-      saveEvaluationPlanDraftToStorage(
-        window.localStorage,
-        getEvaluationPlanTemplateSignature(template, teacherContext),
-        draft,
-      );
+      if (persistence === "server") {
+        const response = await authenticatedFetch("/api/teacher/evaluation-plan", {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ draft, expectedRevision: savedPlan?.revision ?? 0, expectedTemplateRevision: templateRevision, action: submit ? "submit" : "save" }),
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error ?? "평가계획을 저장하지 못했습니다.");
+        setSavedPlan(body.savedPlan);
+      } else {
+        saveEvaluationPlanDraftToStorage(window.localStorage, getEvaluationPlanTemplateSignature(template, teacherContext), draft);
+      }
       setIsDirty(false);
       setStorageNotice(null);
       if (openPreview) {
-        router.push("/teacher/evaluation-plan/preview");
+        router.push(`/teacher/evaluation-plan/preview?grade=${teacherContext.grade}`);
         return;
       }
-      setMessage("평가계획 입력 내용을 저장했습니다.");
+      setMessage(submit ? "평가계에 제출했습니다." : "평가계획 입력 내용을 저장했습니다.");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "평가계획 입력 내용을 저장하지 못했습니다.");
     } finally {
       setIsSaving(false);
     }
   }
+
+  const locked = savedPlan?.status === "submitted" || savedPlan?.status === "approved";
 
   return (
     <div className={styles.workspace}>
@@ -202,6 +225,9 @@ export function EvaluationPlanWorkspace() {
           평가계에서 확정한 양식의 구조는 그대로 유지됩니다. 교과에서는 지정된 입력칸의 내용만 작성합니다.
         </p>
         {storageNotice ? <p className="notice">{storageNotice}</p> : null}
+        <p className="small-copy">{persistence === "browser" ? "체험 모드: 입력 내용은 이 브라우저에 저장됩니다. 제출은 로그인 후 이용할 수 있습니다." : `상태: ${EVALUATION_PLAN_STATUS_LABELS[savedPlan?.status ?? "draft"]}`}</p>
+        {savedPlan?.reviewComment ? <p className="notice">검토 의견: {savedPlan.reviewComment}</p> : null}
+        {teachingGrades.length > 1 ? <nav aria-label="담당 학년" className={styles.saveButtons}>{teachingGrades.map((grade) => <a key={grade} href={`/teacher/evaluation-plan?grade=${grade}`} aria-current={teacherContext.grade === grade ? "page" : undefined}>{grade}학년</a>)}</nav> : null}
         <p className={styles.teacherContextLine}>
           <strong>{teacherContext.academicYear}학년도 {teacherContext.semester}학기</strong>
           <span>{teacherContext.grade}학년</span>
@@ -209,6 +235,7 @@ export function EvaluationPlanWorkspace() {
         </p>
       </section>
 
+      <fieldset disabled={locked || isSaving} className={styles.inputSections}>
       {template.sections
         .slice()
         .sort((left, right) => left.order - right.order)
@@ -222,9 +249,11 @@ export function EvaluationPlanWorkspace() {
             onChange={(change) => updateSection(section.id, change)}
           />
         ))}
+      </fieldset>
 
       <section className={`panel ${styles.savePanel}`}>
         <div className={styles.saveButtons}>
+          {locked ? <Link className="secondary-button" href={`/teacher/evaluation-plan/preview?grade=${teacherContext.grade}`}>제출본 보기·인쇄</Link> : <>
           <button
             className="secondary-button"
             type="button"
@@ -241,9 +270,18 @@ export function EvaluationPlanWorkspace() {
           >
             저장하고 최종본 보기
           </button>
+          <button className="secondary-button" type="button" disabled={isSaving} onClick={() => {
+            const issues = getEvaluationPlanDraftTemplateIssues(template, draft, { teacherContext, calendarEvents });
+            setError(issues.length ? issues.slice(0, 10).map((issue) => issue.message).join("\n") : null);
+            setMessage(issues.length ? null : "입력 형식과 필수 항목 확인을 완료했습니다.");
+          }}>입력 확인</button>
+          {persistence === "server" ? <button className="secondary-button" type="button" disabled={isSaving} onClick={() => {
+            if (window.confirm("평가계에 제출하시겠습니까? 제출 후에는 반려받은 계획만 수정할 수 있습니다.")) void saveDraft(false, true);
+          }}>평가계에 제출</button> : null}
+          </>}
         </div>
         {message ? <p className="validation-success">{message}</p> : null}
-        {error ? <p className="validation-error-box">{error}</p> : null}
+        {error ? <p role="alert" className={`validation-error-box ${styles.errorMessage}`}>{error}</p> : null}
       </section>
     </div>
   );

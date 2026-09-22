@@ -194,6 +194,11 @@ export function createDefaultEvaluationTemplateSectionConfig(
     }
     case "performance_assessment_table": {
       const headerFields = [
+        field("assessment-area", "assessmentArea", "평가명", "text"),
+        field("weight-percent", "weightPercent", "반영 비율", "percentage"),
+        field("max-score", "maxScore", "만점", "number"),
+        field("assessment-period", "assessmentPeriod", "실시 시기", "text"),
+        field("assessment-method", "assessmentMethod", "평가 방법", "text"),
         field("achievement-standards", "achievementStandards", "성취기준", "achievement_standards"),
         field("competencies", "competencies", "교과역량", "checkbox_list"),
         field("ai-notice", "aiNotice", "수행평가 시 AI 활용 학생 유의 사항", "multiline"),
@@ -202,7 +207,7 @@ export function createDefaultEvaluationTemplateSectionConfig(
       return {
         type,
         layout: defaultTableLayout(),
-        table: buildPerformanceAssessmentTable(headerFields, rubricColumnLabels),
+        table: buildPerformanceAssessmentTable(headerFields, rubricColumnLabels, true),
       };
     }
   }

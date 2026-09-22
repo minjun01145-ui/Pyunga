@@ -12,7 +12,9 @@ export async function authenticatedFetch(
     return fetch(input, init);
   }
 
-  const user = getFirebaseClientAuth().currentUser;
+  const auth = getFirebaseClientAuth();
+  await auth.authStateReady();
+  const user = auth.currentUser;
   if (!user) {
     throw new Error("로그인 후 이용해 주세요.");
   }

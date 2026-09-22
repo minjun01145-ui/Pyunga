@@ -154,6 +154,7 @@ export function buildWrittenAssessmentTable(
 export function buildPerformanceAssessmentTable(
   headerFields: readonly SectionTemplateFieldDraft[],
   rubricColumnLabels: readonly string[],
+  editableRubric = false,
 ): TableTemplateDocument {
   const columnCount = Math.max(2, rubricColumnLabels.length);
   const rows: TableTemplateCellDraft[][] = headerFields.map((item) => [
@@ -161,7 +162,13 @@ export function buildPerformanceAssessmentTable(
     inputDraft(item, { colspan: columnCount - 1 }),
   ]);
   rows.push(rubricColumnLabels.map((label) => ({ kind: "text", text: label, header: true })));
-  rows.push(rubricColumnLabels.map(() => ({ kind: "text", text: "" })));
+  rows.push(rubricColumnLabels.map((label, index) => editableRubric ? ({
+    kind: "input",
+    fieldKey: `rubric.column${index + 1}`,
+    fieldLabel: label,
+    inputKind: "multiline",
+    inputSource: "teacher",
+  }) : ({ kind: "text", text: "" })));
   return createTableTemplateDocument(rows);
 }
 

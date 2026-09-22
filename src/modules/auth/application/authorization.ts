@@ -11,10 +11,6 @@ export const EVALUATION_AUTHORING_ROLES = [
   "teacher",
 ] as const satisfies readonly UserRole[];
 
-export function canManageSchoolUsers(role: UserRole): boolean {
-  return role === "school_admin";
-}
-
 export function canManageEvaluationPlans(role: UserRole): boolean {
   return includesRole(EVALUATION_MANAGEMENT_ROLES, role);
 }

@@ -3,6 +3,9 @@
   gap: 16px;
 }
 
+.inputSections { display: grid; gap: 16px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.errorMessage { white-space: pre-line; }
+
 .teacherContextLine {
   display: flex;
   flex-wrap: wrap;

@@ -12,7 +12,65 @@
 .documentHeader {
   margin-bottom: 10mm;
   text-align: center;
+  break-after: avoid-page;
 }
+
+.schoolLogo {
+  display: block;
+  width: 17mm;
+  height: 17mm;
+  object-fit: contain;
+  margin: 0 auto 3mm;
+}
+
+.documentHeader .schoolName {
+  margin: 0 0 2mm;
+  font-size: 11pt;
+  font-weight: 600;
+}
+
+.standard .level1 .sectionHeading {
+  padding: 2mm 0;
+  border-bottom: 0.4mm solid #333;
+}
+
+.standard .rawTable th {
+  background: #f2f2f2;
+  print-color-adjust: exact;
+}
+
+.official .documentHeader {
+  padding-bottom: 6mm;
+  border-bottom: 1mm double #333;
+}
+
+.official .documentHeader h1 {
+  font-family: "Batang", "Noto Serif KR", serif;
+}
+
+.official .level1 .sectionHeading {
+  border: 0.25mm solid #333;
+  padding: 2mm 3mm;
+}
+
+.compact .documentHeader {
+  text-align: left;
+  border-bottom: 0.25mm solid #333;
+  padding-bottom: 4mm;
+  margin-bottom: 5mm;
+}
+
+.compact .schoolLogo {
+  float: right;
+  margin: 0 0 2mm 4mm;
+}
+
+.compact .documentHeader h1 { font-size: 17pt; }
+.compact .documentSection { margin-bottom: 3mm; }
+.compact .level1 { margin-top: 5mm; }
+.compact .level1 .sectionHeading { font-size: 14pt; }
+.compact .rawTable th,
+.compact .rawTable td { padding: 1.2mm 1.5mm; }
 
 .documentHeader h1 {
   margin: 0;
@@ -193,4 +251,6 @@
   :global(.simple-nav) {
     display: none !important;
   }
+  :global(.evaluation-admin-sidebar) { display: none !important; }
+  :global(.evaluation-admin-layout) { display: block; min-height: 0; }
 }

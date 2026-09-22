@@ -1,0 +1,3 @@
+.filters { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin: 14px 0; }
+.tableScroll { overflow-x: auto; }
+@media print { .controls { display: none !important; } }

@@ -1,5 +1,5 @@
 import type { UserProfile, UserRole } from "@/modules/auth";
-import { isAuthenticationDisabled, USER_ROLES } from "@/modules/auth";
+import { isAuthenticationDisabled, parseUserProfile } from "@/modules/auth";
 import { getFirebaseAdminAuth, getFirebaseAdminDatabase } from "@/shared/firebase/admin";
 
 export class RequestAuthenticationError extends Error {
@@ -21,11 +21,31 @@ export async function requireAuthenticatedProfile(
       id: "development-user",
       schoolId: "development-school",
       displayName: "테스트 사용자",
+      teachingGrades: [1, 2, 3],
       role: "school_admin",
       active: true,
+      mustChangePassword: false,
     };
   }
 
+  return requireFirebaseAuthenticatedProfileWithPasswordChanged(request, allowedRoles);
+}
+
+export async function requireFirebaseAuthenticatedProfileWithPasswordChanged(
+  request: Request,
+  allowedRoles?: readonly UserRole[],
+): Promise<UserProfile> {
+  const profile = await requireFirebaseAuthenticatedProfile(request, allowedRoles);
+  if (profile.mustChangePassword) {
+    throw new RequestAuthenticationError("비밀번호를 먼저 변경해 주세요.", 403);
+  }
+  return profile;
+}
+
+export async function requireFirebaseAuthenticatedProfile(
+  request: Request,
+  allowedRoles?: readonly UserRole[],
+): Promise<UserProfile> {
   const authorization = request.headers.get("authorization");
   if (!authorization?.startsWith("Bearer ")) {
     throw new RequestAuthenticationError("로그인이 필요합니다.");
@@ -49,6 +69,9 @@ export async function requireAuthenticatedProfile(
   }
 
   const profile = parseUserProfile(uid, snapshot.data());
+  if (!profile) {
+    throw new RequestAuthenticationError("사용자 프로필 데이터가 올바르지 않습니다.", 403);
+  }
   if (!profile.active) {
     throw new RequestAuthenticationError("비활성화된 계정입니다.", 403);
   }
@@ -58,35 +81,4 @@ export async function requireAuthenticatedProfile(
   }
 
   return profile;
-}
-
-function parseUserProfile(uid: string, data: FirebaseFirestore.DocumentData | undefined): UserProfile {
-  if (
-    !data ||
-    typeof data.schoolId !== "string" ||
-    data.schoolId.length === 0 ||
-    data.schoolId.length > 128 ||
-    typeof data.displayName !== "string" ||
-    data.displayName.length === 0 ||
-    data.displayName.length > 80 ||
-    !isUserRole(data.role) ||
-    typeof data.active !== "boolean" ||
-    (data.subjectLabel !== undefined &&
-      (typeof data.subjectLabel !== "string" || data.subjectLabel.length > 80))
-  ) {
-    throw new RequestAuthenticationError("사용자 프로필 데이터가 올바르지 않습니다.", 403);
-  }
-
-  return {
-    id: uid,
-    schoolId: data.schoolId,
-    displayName: data.displayName,
-    subjectLabel: data.subjectLabel,
-    role: data.role,
-    active: data.active,
-  };
-}
-
-function isUserRole(value: unknown): value is UserRole {
-  return typeof value === "string" && (USER_ROLES as readonly string[]).includes(value);
 }

@@ -7,6 +7,7 @@ import {
   type EvaluationTemplateSectionInput,
 } from "../domain/evaluation-template";
 import { parseEvaluationTemplateSectionConfig } from "../domain/evaluation-template-section-config";
+import { evaluationAcademicPeriodSchema, evaluationTemplatePresentationSchema } from "../domain/evaluation-template-presentation";
 
 const sectionSchema = z.object({
   id: z.string().trim().min(1).max(100),
@@ -32,6 +33,8 @@ const sourceSchema = z.object({
 });
 
 const rawEvaluationTemplateSaveSchema = z.object({
+  presentation: evaluationTemplatePresentationSchema.optional(),
+  academicPeriod: evaluationAcademicPeriodSchema.optional(),
   documentTitle: z.string().trim().min(1).max(200).optional(),
   sections: z.array(sectionSchema).min(1).max(100),
   source: sourceSchema.optional(),
@@ -81,6 +84,8 @@ export function parseEvaluationTemplateSaveInput(value: unknown): EvaluationTemp
   }
 
   const template: EvaluationTemplate = {
+    ...(parsed.data.presentation ? { presentation: parsed.data.presentation } : {}),
+    ...(parsed.data.academicPeriod ? { academicPeriod: parsed.data.academicPeriod } : {}),
     documentTitle: parsed.data.documentTitle,
     sections: normalizeEvaluationTemplateSections(inputs),
     source: parsed.data.source,

@@ -10,6 +10,7 @@ import {
   loadEvaluationPlanDraftBootstrap,
   type EvaluationPlanDraft,
   type TeacherEvaluationContext,
+  type EvaluationPlanWorkspaceData,
 } from "@/modules/evaluation-plan";
 import type { EvaluationTemplate } from "@/modules/template";
 import { authenticatedFetch } from "@/modules/auth/client";
@@ -17,13 +18,6 @@ import { buildRawEvaluationPlanDocument } from "../application/raw-evaluation-pl
 import { RawEvaluationPlanDocument } from "./RawEvaluationPlanDocument";
 
 import styles from "./RawEvaluationPlanPreviewWorkspace.module.css";
-
-type WorkspaceApiResponse = {
-  template: EvaluationTemplate | null;
-  teacherContext: TeacherEvaluationContext;
-  calendarEvents: AcademicCalendarEvent[];
-  error?: string;
-};
 
 export function RawEvaluationPlanPreviewWorkspace() {
   const [template, setTemplate] = useState<EvaluationTemplate | null>(null);
@@ -39,13 +33,21 @@ export function RawEvaluationPlanPreviewWorkspace() {
 
     async function loadPreview() {
       try {
-        const response = await authenticatedFetch("/api/teacher/evaluation-plan");
-        const body = (await response.json()) as WorkspaceApiResponse;
+        const response = await authenticatedFetch(`/api/teacher/evaluation-plan${window.location.search}`);
+        const body = (await response.json()) as EvaluationPlanWorkspaceData;
         if (!response.ok) throw new Error(body.error ?? "평가계획 양식을 불러오지 못했습니다.");
         if (cancelled) return;
         setTemplate(body.template);
         setTeacherContext(body.teacherContext);
         setCalendarEvents(body.calendarEvents);
+        if (body.persistence === "server") {
+          setDraft(body.savedPlan?.draft ?? createEmptyEvaluationPlanDraft(body.teacherContext));
+          if (body.savedPlan) {
+            setTemplate(body.savedPlan.template);
+            setCalendarEvents(body.savedPlan.calendarEvents);
+          }
+          return;
+        }
         const bootstrap = loadEvaluationPlanDraftBootstrap(
           window.localStorage,
           body.template,
@@ -94,37 +96,20 @@ export function RawEvaluationPlanPreviewWorkspace() {
   if (!view) {
     return <p className="notice">평가계에서 평가계획 양식을 먼저 설정해 주세요.</p>;
   }
-  if (templateIssues.length > 0) {
-    return (
-      <div className={styles.previewWorkspace}>
-        <div className="validation-error-box">
-          <p>최종본을 만들기 전에 다음 입력 내용을 확인해 주세요.</p>
-          <ul>
-            {templateIssues.slice(0, 10).map((issue) => (
-              <li key={`${issue.sectionId}:${issue.fieldKey}`}>{issue.message}</li>
-            ))}
-          </ul>
-          {templateIssues.length > 10 ? <p>외 {templateIssues.length - 10}건이 더 있습니다.</p> : null}
-        </div>
-        <div>
-          <Link href="/teacher/evaluation-plan">입력 화면으로 돌아가기</Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className={styles.previewWorkspace}>
       <div className={styles.previewToolbar}>
         <div>
-          <h1 className="page-title">최종 평가계획본 확인</h1>
-          <p className="muted">디자인 가공 전 raw 문서입니다. 내용 구조와 페이지 출력 상태를 확인합니다.</p>
+          <h1 className="page-title">평가계획 출력 미리보기</h1>
+          <p className="muted">학교 양식으로 출력합니다. 인쇄 창에서 PDF로 저장할 수 있습니다.</p>
+          {templateIssues.length ? <details className="notice"><summary>확인이 필요한 항목 {templateIssues.length}건</summary><ul>{templateIssues.map((issue, index) => <li key={index}>{issue.message}</li>)}</ul></details> : null}
           {notice ? <p className="notice">{notice}</p> : null}
         </div>
         <div className={styles.previewActions}>
-          <Link className="secondary-button" href="/teacher/evaluation-plan">입력 화면으로</Link>
+          <Link className="secondary-button" href={`/teacher/evaluation-plan?grade=${teacherContext?.grade ?? ""}`}>입력 화면으로</Link>
           <button className="secondary-button" type="button" onClick={() => window.print()}>
-            인쇄 미리보기
+            인쇄·PDF 저장
           </button>
         </div>
       </div>

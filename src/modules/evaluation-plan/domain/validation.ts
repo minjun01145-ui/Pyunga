@@ -19,18 +19,22 @@ export function calculateTotalWeightPercent(plan: EvaluationPlan): number {
 }
 
 export function validateEvaluationPlan(plan: EvaluationPlan): EvaluationPlanValidationError[] {
-  const errors: EvaluationPlanValidationError[] = [];
   const allWeights = [
     ...plan.writtenAssessments.map((item) => item.weightPercent),
     ...plan.performanceAssessments.map((item) => item.weightPercent),
   ];
+  return validateAssessmentWeights(allWeights);
+}
+
+export function validateAssessmentWeights(allWeights: readonly number[]): EvaluationPlanValidationError[] {
+  const errors: EvaluationPlanValidationError[] = [];
 
   if (allWeights.some((weight) => weight < 0)) {
     errors.push({ code: "NEGATIVE_WEIGHT" });
   }
 
-  const total = calculateTotalWeightPercent(plan);
-  if (total !== 100) {
+  const total = allWeights.reduce((sum, weight) => sum + weight, 0);
+  if (!Number.isFinite(total) || Math.abs(total - 100) > 0.000001) {
     errors.push({ code: "TOTAL_WEIGHT_NOT_100", actual: total });
   }
 

@@ -10,6 +10,8 @@ import {
   type TeachingLearningCalendarRow,
 } from "@/modules/evaluation-plan";
 import {
+  resolveEvaluationTemplatePresentation,
+  type EvaluationTemplatePresentation,
   getTableTemplateColumnWidths,
   getTableTemplateLeadingHeaderRowCount,
   tableTemplateCellText,
@@ -50,6 +52,7 @@ export type RawEvaluationPlanSectionView = {
 };
 
 export type RawEvaluationPlanDocumentView = {
+  presentation: EvaluationTemplatePresentation;
   title: string;
   metadataLine: string;
   firstPageOrientation: TemplateOrientation;
@@ -137,6 +140,7 @@ export function buildRawEvaluationPlanDocument(
 
   return {
     title: template.documentTitle?.trim() || "평가계획",
+    presentation: resolveEvaluationTemplatePresentation(template.presentation),
     metadataLine: buildMetadataLine(draft),
     firstPageOrientation: sections[0]?.orientation ?? "portrait",
     sections,

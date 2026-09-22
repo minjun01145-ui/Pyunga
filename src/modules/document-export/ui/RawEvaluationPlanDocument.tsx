@@ -12,8 +12,13 @@ export function RawEvaluationPlanDocument({ view }: { view: RawEvaluationPlanDoc
     ? styles.orientationLandscape
     : styles.orientationPortrait;
   return (
-    <article className={styles.document}>
+    <article className={`${styles.document} ${styles[view.presentation.style]}`}>
       <header className={`${styles.documentHeader} ${headerOrientationClass}`}>
+        {view.presentation.logoDataUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className={styles.schoolLogo} src={view.presentation.logoDataUrl} alt={`${view.presentation.schoolName || "학교"} 교표`} />
+        ) : null}
+        {view.presentation.schoolName ? <p className={styles.schoolName}>{view.presentation.schoolName}</p> : null}
         <h1>{view.title}</h1>
         {view.metadataLine ? <p>{view.metadataLine}</p> : null}
       </header>
@@ -59,7 +64,7 @@ function RawTable({ table }: { table: RawEvaluationPlanTableView }) {
         {table.columnWidths.length > 0 ? (
           <colgroup>
             {table.columnWidths.map((width, index) => (
-              <col key={index} style={width ? { width: `${width}px` } : undefined} />
+              <col key={index} style={width ? { width: `${width / table.columnWidths.reduce<number>((sum, item) => sum + (item ?? 0), 0) * 100}%` } : undefined} />
             ))}
           </colgroup>
         ) : null}

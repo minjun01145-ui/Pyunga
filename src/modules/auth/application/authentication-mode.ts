@@ -1,5 +1,3 @@
-const authenticationEnabled = false;
-
 export function isAuthenticationDisabled(): boolean {
-  return !authenticationEnabled;
+  return process.env.NEXT_PUBLIC_AUTHENTICATION_ENABLED !== "true";
 }

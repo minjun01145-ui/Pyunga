@@ -1,27 +1,40 @@
 import type { UserRole } from "../domain/role";
+import type { TeachingGrade } from "../domain/user-profile";
 
 export type ProvisionUserCommand = {
   schoolId: string;
   displayName: string;
-  subjectLabel?: string;
+  subjectLabel: string;
+  teachingGrades: TeachingGrade[];
   role: UserRole;
-  loginIdentifier: string;
 };
 
 export type ProvisionedUser = {
   userId: string;
   loginIdentifier: string;
+  temporaryPassword: string;
 };
 
-/**
- * Authentication provider boundary.
- *
- * The product requirement (school admin provisions accounts) is fixed,
- * but the exact Firebase Auth mapping for a human-friendly login ID is not fixed yet.
- * Infrastructure must implement this contract without leaking provider-specific hacks into Domain/Application.
- */
+export type ResetUserPasswordCommand = {
+  schoolId: string;
+  userId: string;
+};
+
+export type ResetUserPasswordResult = {
+  temporaryPassword: string;
+};
+
+export type TeacherAccountSummary = {
+  id: string;
+  loginIdentifier: string;
+  displayName: string;
+  subjectLabel: string;
+  teachingGrades: TeachingGrade[];
+  active: boolean;
+  mustChangePassword: boolean;
+};
+
 export interface UserAccountProvisioner {
   provision(command: ProvisionUserCommand): Promise<ProvisionedUser>;
-  disable(userId: string): Promise<void>;
-  changeRole(userId: string, role: UserRole): Promise<void>;
+  resetPassword(command: ResetUserPasswordCommand): Promise<ResetUserPasswordResult>;
 }

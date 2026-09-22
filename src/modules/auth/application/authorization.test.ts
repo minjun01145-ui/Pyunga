@@ -6,7 +6,6 @@ import {
   EVALUATION_MANAGEMENT_ROLES,
   canEditOwnEvaluationPlan,
   canManageEvaluationPlans,
-  canManageSchoolUsers,
 } from "./authorization";
 
 describe("authorization policies", () => {
@@ -21,9 +20,4 @@ describe("authorization policies", () => {
     }
   });
 
-  it("reserves school user management for school administrators", () => {
-    expect(canManageSchoolUsers("school_admin")).toBe(true);
-    expect(canManageSchoolUsers("evaluation_admin")).toBe(false);
-    expect(canManageSchoolUsers("teacher")).toBe(false);
-  });
 });

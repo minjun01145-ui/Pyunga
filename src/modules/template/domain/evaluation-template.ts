@@ -2,6 +2,12 @@ import {
   getEvaluationTemplateSectionConfigIssues,
   type EvaluationTemplateSectionConfig,
 } from "./evaluation-template-section-config";
+import {
+  evaluationAcademicPeriodSchema,
+  evaluationTemplatePresentationSchema,
+  type EvaluationAcademicPeriod,
+  type EvaluationTemplatePresentation,
+} from "./evaluation-template-presentation";
 
 export type EvaluationTemplateSectionLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
@@ -24,6 +30,8 @@ export type EvaluationTemplateSource = {
 
 export type EvaluationTemplate = {
   documentTitle?: string;
+  presentation?: EvaluationTemplatePresentation;
+  academicPeriod?: EvaluationAcademicPeriod;
   sections: EvaluationTemplateSection[];
   source?: EvaluationTemplateSource;
 };
@@ -86,6 +94,12 @@ export function normalizeEvaluationTemplateSections(
 
 export function getEvaluationTemplateIssues(template: EvaluationTemplate): string[] {
   const issues: string[] = [];
+  if (template.presentation && !evaluationTemplatePresentationSchema.safeParse(template.presentation).success) {
+    issues.push("학교명, 교표 또는 출력 양식을 확인해 주세요.");
+  }
+  if (template.academicPeriod && !evaluationAcademicPeriodSchema.safeParse(template.academicPeriod).success) {
+    issues.push("학년도와 학기를 확인해 주세요.");
+  }
 
   if (template.sections.length === 0) {
     issues.push("대분류를 하나 이상 입력해 주세요.");

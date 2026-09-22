@@ -51,6 +51,7 @@ export function EvaluationAdminSidebar() {
     <aside className="evaluation-admin-sidebar" aria-label="평가계 메뉴">
       <h2 className="evaluation-admin-sidebar-title">평가계용</h2>
       <ul className="evaluation-admin-menu">
+        <li><Link href="/admin/evaluation">작성 현황·검토</Link></li>
         <li><Link href="/admin/evaluation/academic-calendar">학사일정 관리</Link></li>
         <li className={styles.menuGroup}>
           <button
@@ -63,6 +64,7 @@ export function EvaluationAdminSidebar() {
           </button>
           {isTemplateMenuOpen ? (
             <ul className={styles.submenu}>
+              <li><Link href="/admin/evaluation/template/presentation">학교 기본 양식·교표</Link></li>
               <li>
                 <Link href="/admin/evaluation/template/major-sections">대분류 관리</Link>
               </li>
@@ -71,7 +73,7 @@ export function EvaluationAdminSidebar() {
           ) : null}
         </li>
         <li><Link href="/admin/evaluation/ai-test">AI 작동 테스트</Link></li>
-        <li>사용자 관리</li>
+        <li><Link href="/admin/evaluation/users">사용자 관리</Link></li>
       </ul>
     </aside>
   );

@@ -141,6 +141,8 @@ Document View Model
 
 raw 미리보기의 목적은 장식이 아니라 문서 구조와 출력 안정성 검증이다.
 
+학교 기본 출력 양식은 이 공통 View 위에 글꼴, 제목 정렬, 구분선, 표 머리글 음영과 간격을 적용한다. 학교명과 교표는 문서 머리말에서 함께 렌더링하며, 양식 선택과 관계없이 Section 순서와 입력 데이터는 동일하다.
+
 - Section 1~7단계 번호 체계와 들여쓰기/내어쓰기를 일관되게 표시한다.
 - 표는 canonical Table Template의 `rowspan`, `colspan`, 열 폭, 고정 문구를 그대로 사용한다.
 - `repeatHeader=true`인 표는 선두 머리글 행을 `thead`로 렌더링한다.

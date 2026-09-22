@@ -90,6 +90,8 @@ export function EvaluationTemplateSectionWorkspace() {
 
       const imported = body as ImportApiResponse;
       setTemplate({
+        presentation: template?.presentation,
+        academicPeriod: template?.academicPeriod,
         documentTitle: imported.documentTitle,
         sections: imported.sections,
         source: imported.source,
@@ -120,6 +122,8 @@ export function EvaluationTemplateSectionWorkspace() {
         body: JSON.stringify({
           expectedRevision: revision,
           template: {
+            presentation: template.presentation,
+            academicPeriod: template.academicPeriod,
             documentTitle: template.documentTitle,
             sections: template.sections.map((section) => ({
               id: section.id,

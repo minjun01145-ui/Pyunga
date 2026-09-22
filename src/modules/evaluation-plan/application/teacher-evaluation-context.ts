@@ -3,6 +3,8 @@ import type {
   SchoolGrade,
 } from "@/modules/academic-calendar";
 import { EVALUATION_DEMO_CONTEXT } from "@/shared/demo/evaluation-demo-context";
+import type { UserProfile } from "@/modules/auth";
+import type { EvaluationAcademicPeriod } from "@/modules/template";
 
 export type TeacherEvaluationContext = {
   academicYear: number;
@@ -15,14 +17,23 @@ export const DEMO_TEACHER_EVALUATION_CONTEXT: TeacherEvaluationContext = EVALUAT
 
 export class TeacherEvaluationContextUnavailableError extends Error {
   constructor() {
-    super("로그인 사용자용 평가계획 학년·교과 컨텍스트가 아직 설정되지 않았습니다.");
+    super("평가계에서 작성 학년도·학기와 교사의 담당 교과·학년을 설정해 주세요.");
     this.name = "TeacherEvaluationContextUnavailableError";
   }
 }
 
 export function resolveTeacherEvaluationContext(params: {
   demoMode: boolean;
+  profile?: UserProfile;
+  academicPeriod?: EvaluationAcademicPeriod;
+  grade?: number;
 }): TeacherEvaluationContext {
-  if (params.demoMode) return DEMO_TEACHER_EVALUATION_CONTEXT;
+  if (params.demoMode) return { ...DEMO_TEACHER_EVALUATION_CONTEXT, ...params.academicPeriod };
+  const { profile, academicPeriod } = params;
+  const grade = params.grade ?? profile?.teachingGrades[0];
+  if (profile?.subjectLabel && academicPeriod && (grade === 1 || grade === 2 || grade === 3)
+      && profile.teachingGrades.includes(grade)) {
+    return { ...academicPeriod, grade, subjectLabel: profile.subjectLabel };
+  }
   throw new TeacherEvaluationContextUnavailableError();
 }

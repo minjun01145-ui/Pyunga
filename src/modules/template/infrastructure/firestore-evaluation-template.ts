@@ -9,6 +9,7 @@ import {
   type EvaluationTemplateSource,
 } from "../domain/evaluation-template";
 import { parseCompatibleEvaluationTemplateSectionConfig } from "../domain/evaluation-template-section-config-compat";
+import { evaluationAcademicPeriodSchema, evaluationTemplatePresentationSchema } from "../domain/evaluation-template-presentation";
 
 const TEMPLATE_DOCUMENT_ID = "current";
 
@@ -75,6 +76,8 @@ export async function loadEvaluationTemplateState(schoolId: string): Promise<Eva
   return {
     revision: parseStoredRevision(data),
     template: {
+      ...(data.presentation === undefined ? {} : { presentation: evaluationTemplatePresentationSchema.parse(data.presentation) }),
+      ...(data.academicPeriod === undefined ? {} : { academicPeriod: evaluationAcademicPeriodSchema.parse(data.academicPeriod) }),
       ...(documentTitle ? { documentTitle } : {}),
       sections,
       ...(source ? { source } : {}),
@@ -84,6 +87,8 @@ export async function loadEvaluationTemplateState(schoolId: string): Promise<Eva
 
 function serializeEvaluationTemplate(template: EvaluationTemplate) {
   return {
+    ...(template.presentation ? { presentation: template.presentation } : {}),
+    ...(template.academicPeriod ? { academicPeriod: template.academicPeriod } : {}),
     ...(template.documentTitle ? { documentTitle: template.documentTitle } : {}),
     sections: template.sections.map((section) => ({
       id: section.id,

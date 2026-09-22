@@ -164,11 +164,14 @@ AI 비사용:
 
 ## 인증
 
-학교관리자가 계정을 발급하는 제품 흐름은 확정하되,
-Firebase에서 `로그인 ID`를 어떤 방식으로 매핑할지는 확정 후 구현한다.
+교사 계정은 평가계 담당자가 이름·교과·수업 학년을 입력해 발급한다.
+서버가 `user0001` 형태의 로그인 ID를 자동 생성하고, 이 값을 Firebase Authentication UID로 그대로 사용한다.
+따라서 사람용 로그인 ID를 가짜 이메일로 변환하거나 별도 ID 매핑 테이블을 두지 않는다.
 
-계정 생성 기능은 `UserAccountProvisioner` 인터페이스 뒤에 둔다.
-가짜 이메일 생성 등 임시 편법을 기본 구현으로 채택하지 않는다.
+초기 비밀번호와 변경 비밀번호는 서버에서 해시로만 저장한다.
+로그인 시 서버가 ID/비밀번호를 검증한 뒤 Firebase custom token을 발급하고,
+브라우저는 `signInWithCustomToken`으로 기존 ID-token 기반 API 인증 흐름을 그대로 사용한다.
+계정 생성과 비밀번호 초기화는 `UserAccountProvisioner` 경계 뒤에서 수행한다.
 
 ## Firebase 접근 정책
 

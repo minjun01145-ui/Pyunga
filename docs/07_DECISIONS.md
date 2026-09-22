@@ -18,10 +18,11 @@ GitHub live branch push 기반 배포 흐름을 사용한다.
 초기 업무 데이터 쓰기는 서버를 기본 경계로 둔다.
 브라우저 곳곳에서 Firestore write가 난립하는 것을 막는다.
 
-## ADR-005 로그인 ID 구현은 보류
+## ADR-005 로그인 ID는 Firebase UID로 사용
 
-학교관리자가 계정을 발급한다는 업무 흐름만 확정.
-Firebase Auth와 임의 ID의 연결 방식은 별도 검토 후 결정.
+평가계가 교사 계정을 발급하면 서버가 `user0001` 형태의 로그인 ID를 자동 생성한다.
+이 ID를 Firebase Authentication UID로 그대로 사용하고, 가짜 이메일이나 별도 매핑 컬렉션은 만들지 않는다.
+비밀번호는 서버에서 해시로 검증하며 로그인 성공 시 Firebase custom token을 발급한다.
 
 ## ADR-006 개인정보 최소화
 
