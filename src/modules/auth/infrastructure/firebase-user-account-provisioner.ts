@@ -110,6 +110,46 @@ export async function listSchoolTeacherAccounts(schoolId: string): Promise<Teach
     .sort((left, right) => left.loginIdentifier.localeCompare(right.loginIdentifier));
 }
 
+export async function updateSchoolTeacherAccount(params: {
+  schoolId: string;
+  userId: string;
+  displayName: string;
+  subjectLabel: string;
+  teachingGrades: UserProfile["teachingGrades"];
+  active: boolean;
+}): Promise<TeacherAccountSummary> {
+  const userDocument = getFirebaseAdminDatabase().collection("users").doc(params.userId);
+  const snapshot = await userDocument.get();
+  const profile = parseUserProfile(params.userId, snapshot.data());
+
+  if (!profile || profile.schoolId !== params.schoolId || profile.role !== "teacher") {
+    throw new TeacherAccountNotFoundError();
+  }
+
+  if (profile.active !== params.active) {
+    const auth = getFirebaseAdminAuth();
+    await auth.updateUser(params.userId, { disabled: !params.active });
+    if (!params.active) await auth.revokeRefreshTokens(params.userId);
+  }
+
+  await userDocument.update({
+    displayName: params.displayName,
+    subjectLabel: params.subjectLabel,
+    teachingGrades: params.teachingGrades,
+    active: params.active,
+  });
+
+  return {
+    id: profile.id,
+    loginIdentifier: profile.id,
+    displayName: params.displayName,
+    subjectLabel: params.subjectLabel,
+    teachingGrades: params.teachingGrades,
+    active: params.active,
+    mustChangePassword: profile.mustChangePassword,
+  };
+}
+
 function readLastAccountNumber(value: FirebaseFirestore.DocumentData | undefined): number {
   if (!value || !Number.isInteger(value.lastNumber) || value.lastNumber < 0) return 0;
   return value.lastNumber;

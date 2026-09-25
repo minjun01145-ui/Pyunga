@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useState, type FormEvent } from "react";
 
 import {
   isAuthenticationDisabled,
@@ -22,11 +22,16 @@ export function UserManagementWorkspace() {
   const [displayName, setDisplayName] = useState("");
   const [subjectLabel, setSubjectLabel] = useState("");
   const [teachingGrades, setTeachingGrades] = useState<TeachingGrade[]>([]);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editDisplayName, setEditDisplayName] = useState("");
+  const [editSubjectLabel, setEditSubjectLabel] = useState("");
+  const [editTeachingGrades, setEditTeachingGrades] = useState<TeachingGrade[]>([]);
   const [issuedCredentials, setIssuedCredentials] = useState<IssuedCredentials | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(!authenticationDisabled);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resettingUserId, setResettingUserId] = useState<string | null>(null);
+  const [savingUserId, setSavingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (authenticationDisabled) return;
@@ -132,6 +137,75 @@ export function UserManagementWorkspace() {
     }
   }
 
+  function startEditing(user: TeacherAccountSummary) {
+    setEditingUserId(user.id);
+    setEditDisplayName(user.displayName);
+    setEditSubjectLabel(user.subjectLabel);
+    setEditTeachingGrades(user.teachingGrades);
+  }
+
+  async function saveTeacherAccount(
+    user: TeacherAccountSummary,
+    values: { displayName: string; subjectLabel: string; teachingGrades: TeachingGrade[]; active: boolean },
+  ) {
+    const response = await authenticatedFetch(`/api/admin/evaluation/users/${encodeURIComponent(user.id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+    const body = await response.json().catch(() => null) as
+      | { user?: TeacherAccountSummary; error?: string }
+      | null;
+    const updatedUser = body?.user;
+    if (!response.ok || !updatedUser) {
+      throw new Error(body?.error ?? "담당 정보를 저장하지 못했습니다.");
+    }
+    setUsers((current) => current.map((item) => item.id === user.id ? updatedUser : item));
+  }
+
+  async function handleSaveTeacherAccount(event: FormEvent<HTMLFormElement>, user: TeacherAccountSummary) {
+    event.preventDefault();
+    if (editTeachingGrades.length === 0) {
+      setError("담당 학년을 하나 이상 선택해 주세요.");
+      return;
+    }
+    setError(null);
+    setSavingUserId(user.id);
+    try {
+      await saveTeacherAccount(user, {
+        displayName: editDisplayName,
+        subjectLabel: editSubjectLabel,
+        teachingGrades: editTeachingGrades,
+        active: user.active,
+      });
+      setEditingUserId(null);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "담당 정보를 저장하지 못했습니다.");
+    } finally {
+      setSavingUserId(null);
+    }
+  }
+
+  async function handleToggleTeacherActive(user: TeacherAccountSummary) {
+    const nextActive = !user.active;
+    if (!nextActive && !window.confirm(`${user.displayName} 계정을 사용 중지할까요?`)) return;
+    setError(null);
+    setSavingUserId(user.id);
+    try {
+      await saveTeacherAccount(user, {
+        displayName: user.displayName,
+        subjectLabel: user.subjectLabel,
+        teachingGrades: user.teachingGrades,
+        active: nextActive,
+      });
+      setEditingUserId(null);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "계정 상태를 변경하지 못했습니다.");
+    } finally {
+      setSavingUserId(null);
+    }
+  }
+
   function toggleGrade(grade: TeachingGrade) {
     setTeachingGrades((current) =>
       current.includes(grade)
@@ -232,7 +306,8 @@ export function UserManagementWorkspace() {
               </thead>
               <tbody>
                 {users.map((user) => (
-                  <tr key={user.id}>
+                  <Fragment key={user.id}>
+                  <tr>
                     <td>{user.loginIdentifier}</td>
                     <td>{user.displayName}</td>
                     <td>{user.subjectLabel}</td>
@@ -245,16 +320,69 @@ export function UserManagementWorkspace() {
                           : "사용 중"}
                     </td>
                     <td>
-                      <button
-                        className="text-button"
-                        type="button"
-                        disabled={resettingUserId === user.id}
-                        onClick={() => void handleResetPassword(user)}
-                      >
-                        {resettingUserId === user.id ? "초기화 중" : "비밀번호 초기화"}
-                      </button>
+                      <div className="user-account-actions">
+                        <button className="text-button" type="button" onClick={() => startEditing(user)}>
+                          담당 수정
+                        </button>
+                        <button
+                          className="text-button"
+                          type="button"
+                          disabled={resettingUserId === user.id}
+                          onClick={() => void handleResetPassword(user)}
+                        >
+                          {resettingUserId === user.id ? "초기화 중" : "비밀번호 초기화"}
+                        </button>
+                        <button
+                          className="text-button"
+                          type="button"
+                          disabled={savingUserId === user.id}
+                          onClick={() => void handleToggleTeacherActive(user)}
+                        >
+                          {user.active ? "사용 중지" : "다시 사용"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
+                  {editingUserId === user.id ? (
+                    <tr>
+                      <td colSpan={6}>
+                        <form className="form-grid three-columns" onSubmit={(event) => void handleSaveTeacherAccount(event, user)}>
+                          <label className="field">
+                            <span>이름</span>
+                            <input maxLength={80} required value={editDisplayName} onChange={(event) => setEditDisplayName(event.target.value)} />
+                          </label>
+                          <label className="field">
+                            <span>교과</span>
+                            <input maxLength={80} required value={editSubjectLabel} onChange={(event) => setEditSubjectLabel(event.target.value)} />
+                          </label>
+                          <fieldset className="field user-grade-field">
+                            <legend>수업 학년</legend>
+                            <div className="user-grade-options">
+                              {TEACHING_GRADES.map((grade) => (
+                                <label key={grade}>
+                                  <input
+                                    type="checkbox"
+                                    checked={editTeachingGrades.includes(grade)}
+                                    onChange={() => setEditTeachingGrades((current) => current.includes(grade)
+                                      ? current.filter((item) => item !== grade)
+                                      : [...current, grade].sort((left, right) => left - right))}
+                                  />
+                                  {grade}학년
+                                </label>
+                              ))}
+                            </div>
+                          </fieldset>
+                          <div className="save-actions">
+                            <button className="secondary-button" type="submit" disabled={savingUserId === user.id || editTeachingGrades.length === 0}>
+                              {savingUserId === user.id ? "저장 중" : "담당 정보 저장"}
+                            </button>
+                            <button className="text-button" type="button" onClick={() => setEditingUserId(null)}>취소</button>
+                          </div>
+                        </form>
+                      </td>
+                    </tr>
+                  ) : null}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

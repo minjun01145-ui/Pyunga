@@ -17,7 +17,7 @@ export default function HomePage() {
         </thead>
         <tbody>
           <tr>
-            <td>일반 교사</td>
+            <td>과목교사</td>
             <td>본인 평가계획 작성·검증·제출</td>
             <td><Link href="/teacher">열기</Link></td>
           </tr>
@@ -25,11 +25,6 @@ export default function HomePage() {
             <td>평가계</td>
             <td>전 교과 작성 현황·검토·취합</td>
             <td><Link href="/admin/evaluation">열기</Link></td>
-          </tr>
-          <tr>
-            <td>학교 관리자</td>
-            <td>계정·권한·학교 기본설정</td>
-            <td><Link href="/admin/school">열기</Link></td>
           </tr>
         </tbody>
       </table>

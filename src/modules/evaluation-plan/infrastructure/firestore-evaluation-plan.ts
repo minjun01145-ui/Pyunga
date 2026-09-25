@@ -9,6 +9,9 @@ import { applyTeacherEvaluationContext, getEvaluationPlanTemplateSignature, pars
 import { EvaluationPlanWorkflowError, evaluationPlanSummarySchema, getEvaluationPlanSubmissionIssues, transitionEvaluationPlan, type SavedEvaluationPlan } from "../application/evaluation-plan-workflow";
 import type { TeacherEvaluationContext } from "../application/teacher-evaluation-context";
 
+const MAX_COMPILED_PLAN_COUNT = 200;
+const MAX_COMPILED_PLAN_BYTES = 30 * 1024 * 1024;
+
 const calendarSnapshotSchema = z.array(z.object({
   id: z.string(), schoolId: z.string(), academicYear: z.number().int(), title: z.string(),
   type: z.enum(["written_exam", "school_event", "vacation", "other"]),
@@ -47,6 +50,38 @@ export async function listSavedEvaluationPlans(schoolId: string) {
     .limit(1001).execute();
   if (snapshot.results.length > 1000) throw new EvaluationPlanWorkflowError("조회 가능한 평가계획 수를 초과했습니다. 관리자에게 문의해 주세요.", 400);
   return snapshot.results.map((result) => evaluationPlanSummarySchema.parse(result.data()));
+}
+
+export async function listApprovedEvaluationPlans(params: {
+  schoolId: string;
+  academicYear: number;
+  semester: 1 | 2;
+}): Promise<SavedEvaluationPlan[]> {
+  const snapshot = await collection(params.schoolId)
+    .where("context.academicYear", "==", params.academicYear)
+    .where("context.semester", "==", params.semester)
+    .where("status", "==", "approved")
+    .limit(MAX_COMPILED_PLAN_COUNT + 1)
+    .get();
+
+  if (snapshot.docs.length > MAX_COMPILED_PLAN_COUNT) {
+    throw new EvaluationPlanWorkflowError(
+      `승인된 평가계획이 ${MAX_COMPILED_PLAN_COUNT}개를 넘어 한 번에 취합할 수 없습니다.`,
+      409,
+    );
+  }
+
+  const plans = snapshot.docs
+    .map((document) => parseStoredPlan(document.data()))
+    .sort((left, right) => left.context.grade - right.context.grade
+      || left.context.subjectLabel.localeCompare(right.context.subjectLabel, "ko")
+      || left.teacherLabel.localeCompare(right.teacherLabel, "ko"));
+
+  if (Buffer.byteLength(JSON.stringify(plans), "utf8") > MAX_COMPILED_PLAN_BYTES) {
+    throw new EvaluationPlanWorkflowError("취합 자료가 커서 한 번에 출력할 수 없습니다.", 409);
+  }
+
+  return plans;
 }
 
 export async function writeEvaluationPlan(params: {

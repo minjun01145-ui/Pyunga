@@ -24,7 +24,7 @@ describe("parseUserProfile", () => {
     });
   });
 
-  it("keeps older administrator profiles compatible", () => {
+  it("maps older school administrator profiles to the evaluation role", () => {
     expect(parseUserProfile("legacy-admin", {
       schoolId: "school-1",
       displayName: "관리자",
@@ -36,7 +36,7 @@ describe("parseUserProfile", () => {
       displayName: "관리자",
       subjectLabel: undefined,
       teachingGrades: [],
-      role: "school_admin",
+      role: "evaluation_admin",
       active: true,
       mustChangePassword: false,
     });

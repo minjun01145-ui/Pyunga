@@ -29,3 +29,5 @@ env:
     secret: OLLAMA_BASE_URL
   - variable: OLLAMA_MODEL
     secret: OLLAMA_MODEL
+  - variable: PYUNGA_INITIAL_ADMIN_KEY
+    secret: PYUNGA_INITIAL_ADMIN_KEY

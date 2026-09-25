@@ -29,7 +29,7 @@ export function parseUserProfile(id: string, value: unknown): UserProfile | null
   const schoolId = value.schoolId;
   const displayName = value.displayName;
   const subjectLabel = value.subjectLabel;
-  const role = value.role;
+  const role = parseUserRole(value.role);
   const active = value.active;
 
   if (
@@ -41,7 +41,7 @@ export function parseUserProfile(id: string, value: unknown): UserProfile | null
     displayName.length > 80 ||
     (subjectLabel !== undefined &&
       (typeof subjectLabel !== "string" || subjectLabel.length > 80)) ||
-    !isUserRole(role) ||
+    !role ||
     typeof active !== "boolean"
   ) {
     return null;
@@ -68,8 +68,10 @@ function isTeachingGrade(value: unknown): value is TeachingGrade {
   return typeof value === "number" && (TEACHING_GRADES as readonly number[]).includes(value);
 }
 
-function isUserRole(value: unknown): value is UserRole {
-  return value === "school_admin" || value === "evaluation_admin" || value === "teacher";
+function parseUserRole(value: unknown): UserRole | null {
+  if (value === "school_admin") return "evaluation_admin";
+  if (value === "evaluation_admin" || value === "teacher") return value;
+  return null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

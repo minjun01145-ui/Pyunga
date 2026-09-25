@@ -101,13 +101,18 @@ export function buildRawEvaluationPlanDocument(
       }
 
       if (section.config.type === "outline_text") {
+        const commonText = section.config.commonText?.trim();
+        const teacherText = draftSection?.body ?? "";
         return {
           id: section.id,
           level: section.level,
           marker: headingMarker(section.level, counters[section.level]),
           title,
           orientation: "portrait",
-          content: { kind: "text", text: draftSection?.body ?? "" },
+          content: {
+            kind: "text",
+            text: commonText && teacherText ? `${commonText}\n\n${teacherText}` : commonText ?? teacherText,
+          },
         };
       }
 

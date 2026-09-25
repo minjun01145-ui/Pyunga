@@ -22,7 +22,7 @@ export async function requireAuthenticatedProfile(
       schoolId: "development-school",
       displayName: "테스트 사용자",
       teachingGrades: [1, 2, 3],
-      role: "school_admin",
+      role: "evaluation_admin",
       active: true,
       mustChangePassword: false,
     };

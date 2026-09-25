@@ -324,15 +324,23 @@ function TeacherSection({
       ) : section.config.type === "title_only" ? (
         <p className="muted small-copy">최종 문서에 제목만 표시되는 항목입니다.</p>
       ) : section.config.type === "outline_text" ? (
-        <label className="field">
-          <span>내용</span>
-          <textarea
-            rows={8}
-            maxLength={30_000}
-            value={data.body ?? ""}
-            onChange={(event) => onChange((current) => ({ ...current, body: event.target.value }))}
-          />
-        </label>
+        <div className={styles.outlineEditor}>
+          {section.config.commonText?.trim() ? (
+            <div className={styles.commonText}>
+              <strong>학교 공통 문구</strong>
+              <p>{section.config.commonText}</p>
+            </div>
+          ) : null}
+          <label className="field">
+            <span>과목별 내용</span>
+            <textarea
+              rows={8}
+              maxLength={30_000}
+              value={data.body ?? ""}
+              onChange={(event) => onChange((current) => ({ ...current, body: event.target.value }))}
+            />
+          </label>
+        </div>
       ) : (
         <>
           {section.config.type === "teaching_learning_table" && section.config.calendarRows.enabled ? (() => {

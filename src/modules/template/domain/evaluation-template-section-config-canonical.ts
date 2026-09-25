@@ -68,6 +68,7 @@ export type OutlineNumberingStyle =
 export type OutlineTextConfig = {
   type: "outline_text";
   numberingLevels: OutlineNumberingStyle[];
+  commonText?: string;
 };
 
 export type AchievementRateTableConfig = TableSectionConfig<"achievement_rate_table">;
@@ -233,8 +234,17 @@ export function parseCanonicalEvaluationTemplateSectionConfig(
       if (!Array.isArray(value.numberingLevels) || value.numberingLevels.length === 0 || value.numberingLevels.length > 6) {
         return undefined;
       }
+      if (value.commonText !== undefined && (typeof value.commonText !== "string" || value.commonText.length > 30_000)) {
+        return undefined;
+      }
       const numberingLevels = value.numberingLevels.filter(isOutlineNumberingStyle);
-      return numberingLevels.length === value.numberingLevels.length ? { type: value.type, numberingLevels } : undefined;
+      return numberingLevels.length === value.numberingLevels.length
+        ? {
+            type: value.type,
+            numberingLevels,
+            ...(typeof value.commonText === "string" ? { commonText: value.commonText } : {}),
+          }
+        : undefined;
     }
     case "achievement_rate_table":
     case "semester_achievement_level_table":
@@ -251,7 +261,12 @@ export function parseCanonicalEvaluationTemplateSectionConfig(
 }
 
 export function getEvaluationTemplateSectionConfigIssues(config: EvaluationTemplateSectionConfig): string[] {
-  if (config.type === "title_only" || config.type === "outline_text") return [];
+  if (config.type === "title_only") return [];
+  if (config.type === "outline_text") {
+    return config.commonText && config.commonText.length > 30_000
+      ? ["학교 공통 문구는 30,000자 이하로 입력해 주세요."]
+      : [];
+  }
   const fieldKeys = new Set<string>();
   let systemCellCount = 0;
   for (const row of config.table.content[0].content) {

@@ -100,7 +100,19 @@ export function EvaluationTemplateSectionFormatEditor({
       {config.type === "title_only" ? (
         <p className="small-copy">이 항목은 교과 입력칸 없이 제목만 최종 문서에 표시됩니다.</p>
       ) : config.type === "outline_text" ? (
-        <p className="small-copy">번호 단계: {config.numberingLevels.map(numberingLabel).join(" → ")}</p>
+        <>
+          <p className="small-copy">번호 단계: {config.numberingLevels.map(numberingLabel).join(" → ")}</p>
+          <label className="field">
+            <span>학교 공통 문구·평가 처리 방침</span>
+            <textarea
+              rows={8}
+              maxLength={30_000}
+              value={config.commonText ?? ""}
+              onChange={(event) => handleConfigChange({ ...config, commonText: event.target.value })}
+            />
+          </label>
+          <p className="muted small-copy">입력한 문구는 모든 과목 계획에 공통으로 표시되며 과목교사가 수정할 수 없습니다.</p>
+        </>
       ) : (
         <>
           <TableLayoutOptions config={config} onChange={handleConfigChange} />

@@ -565,6 +565,12 @@ textarea {
   min-width: 760px;
 }
 
+.user-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .calendar-date-inputs {
   display: grid;
   grid-template-columns: 1fr;

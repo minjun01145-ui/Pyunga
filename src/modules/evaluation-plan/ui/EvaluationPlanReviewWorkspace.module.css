@@ -1,3 +1,5 @@
 .filters { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin: 14px 0; }
 .tableScroll { overflow-x: auto; }
+.compiledCollection { display: grid; gap: 16px; }
+.compiledDocument + .compiledDocument { break-before: page; page-break-before: always; }
 @media print { .controls { display: none !important; } }

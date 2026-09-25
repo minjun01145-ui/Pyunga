@@ -140,6 +140,33 @@ describe("parseEvaluationTemplateSaveInput", () => {
     expect(savedConfig.table.content[0].content[0].content.at(-1)?.attrs.colspan).toBe(2);
   });
 
+  it("saves school-wide wording with an outline section and rejects oversized wording", () => {
+    const config = createDefaultEvaluationTemplateSectionConfig("outline_text");
+    if (config.type !== "outline_text") throw new Error("Outline config expected");
+
+    const template = parseEvaluationTemplateSaveInput({
+      sections: [{
+        id: "policy",
+        title: "평가 방침",
+        level: 1,
+        config: { ...config, commonText: "미제출 평가의 처리 기준은 학교 규정에 따른다." },
+      }],
+    });
+
+    expect(template?.sections[0].config).toMatchObject({
+      type: "outline_text",
+      commonText: "미제출 평가의 처리 기준은 학교 규정에 따른다.",
+    });
+    expect(parseEvaluationTemplateSaveInput({
+      sections: [{
+        id: "policy",
+        title: "평가 방침",
+        level: 1,
+        config: { ...config, commonText: "x".repeat(30_001) },
+      }],
+    })).toBeNull();
+  });
+
   it("rejects an invalid section format instead of storing arbitrary config", () => {
     const template = parseEvaluationTemplateSaveInput({
       sections: [

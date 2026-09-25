@@ -41,10 +41,11 @@ Template 관련 타입은 실제 구현 시 별도 template module에 두며 Eva
 ## 사용자 역할
 
 ```text
-SCHOOL_ADMIN
 EVALUATION_ADMIN
 TEACHER
 ```
+
+`school_admin`으로 저장된 기존 프로필은 호환 경계에서 `evaluation_admin`으로 읽는다. 신규 권한 모델에는 학교관리자 역할을 두지 않는다.
 
 권한은 문자열 곳곳에 흩뿌리지 않고 auth domain에 하나의 타입으로 관리한다.
 

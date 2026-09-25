@@ -73,6 +73,32 @@ describe("raw evaluation plan document", () => {
     expect(view.sections[1].content.kind).toBe("none");
   });
 
+  it("includes evaluator-managed common wording before the subject text", () => {
+    const template: EvaluationTemplate = {
+      sections: [{
+        id: "policy",
+        title: "평가 방침",
+        level: 1,
+        teacherEditableTitle: false,
+        order: 0,
+        config: {
+          type: "outline_text",
+          numberingLevels: ["decimal_dot"],
+          commonText: "미제출 평가의 처리 기준은 학교 규정에 따른다.",
+        },
+      }],
+    };
+    const subjectDraft = {
+      ...draft,
+      sections: { policy: { fields: {}, body: "교과별 추가 안내" } },
+    };
+
+    expect(buildRawEvaluationPlanDocument(template, subjectDraft).sections[0].content).toEqual({
+      kind: "text",
+      text: "미제출 평가의 처리 기준은 학교 규정에 따른다.\n\n교과별 추가 안내",
+    });
+  });
+
   it("resolves editable titles and bound table values without mutating the template", () => {
     const table = createTableTemplateDocument([
       [

@@ -57,3 +57,5 @@ firebase apphosting:secrets:set ollamaApiKey
 이 프로젝트의 웹앱 배포 기준은 App Hosting으로 통일한다.
 
 `firestore.rules` 배포는 웹앱 App Hosting rollout과 별개의 Firebase 설정 작업일 수 있으므로 보안 규칙 변경은 의도적으로 관리한다.
+
+평가계의 현재 학기 승인본 취합은 `firestore.indexes.json`의 복합 인덱스를 사용한다. 처음 배포하거나 인덱스 정의를 바꾼 뒤에는 Firestore index 배포가 완료된 것을 확인하고 업무 흐름을 확인한다.

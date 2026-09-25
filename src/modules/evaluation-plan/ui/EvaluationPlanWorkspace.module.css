@@ -82,6 +82,22 @@
   white-space: pre-wrap;
 }
 
+.outlineEditor {
+  display: grid;
+  gap: 14px;
+}
+
+.commonText {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.commonText p {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+}
+
 .systemCellText {
   display: block;
   min-height: 34px;

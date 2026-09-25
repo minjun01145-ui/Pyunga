@@ -4,9 +4,8 @@ import { AuthNavigation } from "@/modules/auth/ui/AuthNavigation";
 
 const navigationItems = [
   { href: "/", label: "첫 화면" },
-  { href: "/teacher", label: "교사용(평가계획 작성)" },
-  { href: "/admin/evaluation", label: "평가계용" },
-  { href: "/admin/school", label: "학교 관리자용" },
+  { href: "/teacher", label: "과목교사" },
+  { href: "/admin/evaluation", label: "평가계" },
 ] as const;
 
 export function AppNavigation() {

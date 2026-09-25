@@ -16,6 +16,9 @@ export function EvaluationPlanReviewWorkspace() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
+  const [compiledPlans, setCompiledPlans] = useState<SavedEvaluationPlan[]>([]);
+  const [isCompiling, setIsCompiling] = useState(false);
+  const [compilationMessage, setCompilationMessage] = useState("");
 
   async function load() {
     setLoading(true);
@@ -64,6 +67,27 @@ export function EvaluationPlanReviewWorkspace() {
     finally { setBusy(false); }
   }
 
+  async function compileApprovedPlans() {
+    setIsCompiling(true);
+    setError("");
+    setCompilationMessage("");
+    try {
+      const response = await authenticatedFetch("/api/admin/evaluation/plans/approved");
+      const body = await response.json() as { plans?: SavedEvaluationPlan[]; error?: string };
+      if (!response.ok) throw new Error(body.error ?? "승인된 평가계획을 취합하지 못했습니다.");
+      if (!Array.isArray(body.plans)) throw new Error("취합할 평가계획 자료가 올바르지 않습니다.");
+      setSelected(null);
+      setCompiledPlans(body.plans);
+      if (body.plans.length === 0) {
+        setCompilationMessage("현재 학기에서 승인된 평가계획이 없습니다.");
+      }
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "승인된 평가계획을 취합하지 못했습니다.");
+    } finally {
+      setIsCompiling(false);
+    }
+  }
+
   async function review(action: "approve" | "reject") {
     if (!selected) return;
     setBusy(true);
@@ -94,7 +118,11 @@ export function EvaluationPlanReviewWorkspace() {
         <label className="field"><span>학년도·교과·학년·담당자 검색</span><input value={search} onChange={(event) => setSearch(event.target.value)} /></label>
         <label className="field"><span>상태</span><select value={filter} onChange={(event) => setFilter(event.target.value)}><option value="">전체</option>{Object.entries(EVALUATION_PLAN_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <button className="secondary-button" type="button" disabled={loading || busy} onClick={() => { setSelected(null); void load(); }}>새로고침</button>
+        {!demoMode ? <button className="secondary-button" type="button" disabled={loading || busy || isCompiling} onClick={() => void compileApprovedPlans()}>
+          {isCompiling ? "승인본 취합 중" : "승인된 전 과목 취합·인쇄"}
+        </button> : null}
       </div>
+      {compilationMessage ? <p className="notice">{compilationMessage}</p> : null}
       {error ? <p role="alert" className="validation-error-box">{error}</p> : null}
       {loading ? <p role="status">작성 현황을 불러오는 중입니다.</p> : <div className={styles.tableScroll}><table className="simple-table">
         <thead><tr><th>학년도·학기</th><th>교과</th><th>학년</th><th>담당자</th><th>상태</th><th>수정일</th><th>확인</th></tr></thead>
@@ -120,5 +148,22 @@ export function EvaluationPlanReviewWorkspace() {
       </section>
       <RawEvaluationPlanDocument view={buildRawEvaluationPlanDocument(selected.template, selected.draft, { teacherContext: selected.context, calendarEvents: selected.calendarEvents })} />
     </> : null}
+    {compiledPlans.length > 0 ? (
+      <section className={styles.compiledCollection}>
+        <section className={`panel ${styles.controls}`}>
+          <h2 className="section-title">승인된 전 과목 평가계획</h2>
+          <p className="muted">{compiledPlans[0].context.academicYear}학년도 {compiledPlans[0].context.semester}학기 · {compiledPlans.length}개 과목 계획</p>
+          <div className={styles.filters}>
+            <button className="secondary-button" type="button" onClick={() => window.print()}>취합본 인쇄·PDF 저장</button>
+            <button className="secondary-button" type="button" onClick={() => setCompiledPlans([])}>취합본 닫기</button>
+          </div>
+        </section>
+        {compiledPlans.map((plan) => (
+          <div className={styles.compiledDocument} key={plan.id}>
+            <RawEvaluationPlanDocument view={buildRawEvaluationPlanDocument(plan.template, plan.draft, { teacherContext: plan.context, calendarEvents: plan.calendarEvents })} />
+          </div>
+        ))}
+      </section>
+    ) : null}
   </div>;
 }

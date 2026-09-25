@@ -1,12 +1,10 @@
 import type { UserRole } from "../domain/role";
 
 export const EVALUATION_MANAGEMENT_ROLES = [
-  "school_admin",
   "evaluation_admin",
 ] as const satisfies readonly UserRole[];
 
 export const EVALUATION_AUTHORING_ROLES = [
-  "school_admin",
   "evaluation_admin",
   "teacher",
 ] as const satisfies readonly UserRole[];
