@@ -5,7 +5,7 @@ import { isRealIsoDate, type AcademicCalendarEvent } from "@/modules/academic-ca
 import { parseEvaluationTemplateSaveInput } from "@/modules/template/server";
 import type { EvaluationTemplate } from "@/modules/template";
 import { getFirebaseAdminDatabase } from "@/shared/firebase/admin";
-import { applyTeacherEvaluationContext, getEvaluationPlanTemplateSignature, parseEvaluationPlanDraft, type EvaluationPlanDraft } from "../application/evaluation-plan-draft";
+import { applyTeacherEvaluationContext, getEvaluationPlanTemplateSignature, parseEvaluationPlanDraft, serializeEvaluationPlanDraft, type EvaluationPlanDraft } from "../application/evaluation-plan-draft";
 import { EvaluationPlanWorkflowError, evaluationPlanSummarySchema, getEvaluationPlanSubmissionIssues, transitionEvaluationPlan, type SavedEvaluationPlan } from "../application/evaluation-plan-workflow";
 import type { TeacherEvaluationContext } from "../application/teacher-evaluation-context";
 
@@ -23,6 +23,10 @@ const calendarSnapshotSchema = z.array(z.object({
 
 export function evaluationPlanDocumentId(userId: string, context: TeacherEvaluationContext): string {
   return createHash("sha256").update(JSON.stringify([userId, context.academicYear, context.semester, context.grade, context.subjectLabel])).digest("hex");
+}
+
+export function evaluationPlanDraftStorageScope(schoolId: string, userId: string): string {
+  return createHash("sha256").update(JSON.stringify([schoolId, userId])).digest("hex");
 }
 
 function collection(schoolId: string) {
@@ -104,10 +108,17 @@ export async function writeEvaluationPlan(params: {
     if ((current?.revision ?? 0) !== params.expectedRevision) throw new EvaluationPlanWorkflowError("다른 화면에서 먼저 저장했습니다. 최신 내용을 다시 불러온 뒤 수정해 주세요.");
     if ((templateSnapshot.data()?.revision ?? 0) !== params.templateRevision) throw new EvaluationPlanWorkflowError("학교 양식이 변경되었습니다. 최신 양식을 다시 불러와 주세요.");
     const status = transitionEvaluationPlan({ profile, teacherUserId: current?.teacherUserId ?? profile.id, status: current?.status ?? "draft", action: params.action });
+    const templateSignature = getEvaluationPlanTemplateSignature(template, context);
+    if (params.action === "save"
+      && current?.status === "draft"
+      && current.templateSignature === templateSignature
+      && serializeEvaluationPlanDraft(current.draft) === serializeEvaluationPlanDraft(draft)) {
+      return current;
+    }
     const record: SavedEvaluationPlan = {
       id, teacherUserId: profile.id, teacherLabel: profile.displayName, context,
       status, revision: (current?.revision ?? 0) + 1,
-      templateSignature: getEvaluationPlanTemplateSignature(template, context),
+      templateSignature,
       updatedAt: new Date().toISOString(), reviewComment: current?.reviewComment ?? "",
       draft, template, calendarEvents,
     };

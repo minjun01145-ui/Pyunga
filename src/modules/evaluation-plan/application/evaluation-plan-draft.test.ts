@@ -6,6 +6,7 @@ import {
   getEvaluationPlanDraftTemplateIssues,
   getEvaluationPlanTemplateSignature,
   parseEvaluationPlanDraft,
+  serializeEvaluationPlanDraft,
   type EvaluationPlanDraft,
 } from "./evaluation-plan-draft";
 import { DEMO_TEACHER_EVALUATION_CONTEXT } from "./teacher-evaluation-context";
@@ -106,6 +107,20 @@ describe("evaluation plan draft", () => {
     expect(getEvaluationPlanTemplateSignature(base)).toBe(getEvaluationPlanTemplateSignature(structuredClone(base)));
     expect(getEvaluationPlanTemplateSignature(base, DEMO_TEACHER_EVALUATION_CONTEXT))
       .not.toBe(getEvaluationPlanTemplateSignature(base));
+  });
+
+  it("serializes server draft data deterministically and excludes unknown UI fields", () => {
+    const first: EvaluationPlanDraft & { temporaryPanel: string } = {
+      ...createEmptyEvaluationPlanDraft(),
+      temporaryPanel: "open",
+      sections: { method: { fields: { z: "last", a: "first" } } },
+    };
+    const second = {
+      ...createEmptyEvaluationPlanDraft(),
+      sections: { method: { fields: { a: "first", z: "last" } } },
+    };
+
+    expect(serializeEvaluationPlanDraft(first)).toBe(serializeEvaluationPlanDraft(second));
   });
 
   it("validates required and percentage fields against the current template", () => {

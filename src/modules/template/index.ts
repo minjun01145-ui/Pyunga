@@ -5,3 +5,4 @@ export * from "./domain/evaluation-template-section-config";
 export * from "./domain/evaluation-template-navigation";
 export * from "./domain/evaluation-template-section-title";
 export * from "./domain/table-template";
+export { parseEvaluationTemplateSaveInput } from "./application/evaluation-template-save";

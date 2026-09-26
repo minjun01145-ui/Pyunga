@@ -248,6 +248,14 @@ export function getEvaluationPlanTemplateSignature(
   return `v1-${(hash >>> 0).toString(16).padStart(8, "0")}`;
 }
 
+export function serializeEvaluationPlanDraft(draft: EvaluationPlanDraft): string {
+  const parsed = parseEvaluationPlanDraft(draft);
+  if (!parsed) {
+    throw new Error("평가계획 초안 형식이 올바르지 않습니다.");
+  }
+  return stableSerialize(parsed);
+}
+
 function stableSerialize(value: unknown): string {
   if (value === null || typeof value !== "object") {
     return JSON.stringify(value);

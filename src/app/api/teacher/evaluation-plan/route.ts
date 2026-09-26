@@ -9,7 +9,7 @@ import {
   evaluationPlanWriteSchema,
   EvaluationPlanWorkflowError,
 } from "@/modules/evaluation-plan";
-import { evaluationPlanDocumentId, loadSavedEvaluationPlan, writeEvaluationPlan } from "@/modules/evaluation-plan/server";
+import { evaluationPlanDocumentId, evaluationPlanDraftStorageScope, loadSavedEvaluationPlan, writeEvaluationPlan } from "@/modules/evaluation-plan/server";
 import { loadEvaluationTemplateState } from "@/modules/template/server";
 
 export const runtime = "nodejs";
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
       }),
       isAuthenticationDisabled() ? null : loadSavedEvaluationPlan(profile.schoolId, evaluationPlanDocumentId(profile.id, teacherContext)),
     ]);
-    return NextResponse.json({ template: state.template, templateRevision: state.revision, teacherContext, calendarEvents, savedPlan, teachingGrades: isAuthenticationDisabled() ? [teacherContext.grade] : profile.teachingGrades, persistence: isAuthenticationDisabled() ? "browser" : "server" });
+    return NextResponse.json({ template: state.template, templateRevision: state.revision, teacherContext, calendarEvents, savedPlan, teachingGrades: isAuthenticationDisabled() ? [teacherContext.grade] : profile.teachingGrades, persistence: isAuthenticationDisabled() ? "browser" : "server", draftStorageScope: isAuthenticationDisabled() ? null : evaluationPlanDraftStorageScope(profile.schoolId, profile.id) });
   } catch (error) {
     if (error instanceof RequestAuthenticationError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

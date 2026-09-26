@@ -51,6 +51,7 @@ export type EvaluationPlanWorkspaceData = {
   savedPlan: SavedEvaluationPlan | null;
   teachingGrades: number[];
   persistence: "browser" | "server";
+  draftStorageScope?: string | null;
   error?: string;
 };
 
