@@ -16,6 +16,19 @@
   gap: 16px;
 }
 
+.compact .formatHeader,
+.compact .formatTypeChange {
+  display: grid;
+}
+
+.compact .formatTypeChange {
+  white-space: normal;
+}
+
+.compact .tableOptions {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .formatPrompt {
   max-width: 620px;
 }

@@ -29,6 +29,8 @@ import styles from "./TableTemplateEditor.module.css";
 
 type TableTemplateEditorProps = {
   document: TableTemplateDocument;
+  editable?: boolean;
+  compact?: boolean;
   onChange: (document: TableTemplateDocument) => void;
 };
 
@@ -71,6 +73,8 @@ const TableFieldAttributes = Extension.create({
 
 export function TableTemplateEditor({
   document,
+  editable = true,
+  compact = false,
   onChange,
 }: TableTemplateEditorProps) {
   const [, setSelectionRevision] = useState(0);
@@ -79,6 +83,7 @@ export function TableTemplateEditor({
   const onChangeRef = useRef(onChange);
   const editor = useEditor({
     immediatelyRender: false,
+    editable,
     extensions: [
       StarterKit.configure({
         blockquote: false,
@@ -139,6 +144,10 @@ export function TableTemplateEditor({
   }, [onChange]);
 
   useEffect(() => {
+    editor?.setEditable(editable);
+  }, [editable, editor]);
+
+  useEffect(() => {
     if (!editor) return;
     lastValidDocumentRef.current = document;
     const current = parseTableTemplateDocument(editor.getJSON());
@@ -156,7 +165,7 @@ export function TableTemplateEditor({
   const headerToggleIssue = getHeaderToggleIssue(editor);
 
   return (
-    <div className={styles.editorShell}>
+    <div className={`${styles.editorShell} ${compact ? styles.compact : ""}`}>
       <div className={styles.toolbar} aria-label="표 편집 도구">
         <ToolbarButton label="실행 취소" disabled={!editor.can().undo()} onClick={() => editor.chain().focus().undo().run()} />
         <ToolbarButton label="다시 실행" disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()} />

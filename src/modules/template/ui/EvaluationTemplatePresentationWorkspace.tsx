@@ -2,13 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { authenticatedFetch } from "@/modules/auth/client";
-import { buildRawEvaluationPlanDocument, RawEvaluationPlanDocument } from "@/modules/document-export";
+import { buildRawEvaluationPlanDocument } from "@/modules/document-export";
 import { createEmptyEvaluationPlanDraft } from "@/modules/evaluation-plan";
 import { useUnsavedChangesGuard } from "@/shared/ui/useUnsavedChangesGuard";
 import { createDefaultEvaluationTemplate } from "../domain/default-evaluation-template";
-import type { EvaluationTemplate } from "../domain/evaluation-template";
+import {
+  moveEvaluationTemplateSection,
+  updateEvaluationTemplateSection,
+  type EvaluationTemplate,
+  type EvaluationTemplateSectionPatch,
+} from "../domain/evaluation-template";
 import { EVALUATION_DOCUMENT_STYLES, resolveEvaluationTemplatePresentation } from "../domain/evaluation-template-presentation";
 import { readSchoolLogo } from "../infrastructure/school-logo-image";
+import { EvaluationTemplateSectionInspector } from "./EvaluationTemplateSectionInspector";
+import { InteractiveTemplatePreview } from "./InteractiveTemplatePreview";
 import styles from "./EvaluationTemplatePresentationWorkspace.module.css";
 
 export function EvaluationTemplatePresentationWorkspace() {
@@ -18,6 +25,7 @@ export function EvaluationTemplatePresentationWorkspace() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   useUnsavedChangesGuard(dirty, "저장하지 않은 학교 양식 설정이 있습니다. 이동하시겠습니까?");
 
   useEffect(() => {
@@ -43,6 +51,23 @@ export function EvaluationTemplatePresentationWorkspace() {
     setDirty(true);
     setMessage("");
     setError("");
+  }
+
+  function updateSection(sectionId: string, patch: EvaluationTemplateSectionPatch) {
+    update((current) => ({
+      ...current,
+      sections: updateEvaluationTemplateSection(current.sections, sectionId, patch),
+    }));
+  }
+
+  function moveSection(sectionId: string, direction: -1 | 1) {
+    update((current) => {
+      const index = current.sections.findIndex((section) => section.id === sectionId);
+      return {
+        ...current,
+        sections: moveEvaluationTemplateSection(current.sections, index, direction),
+      };
+    });
   }
 
   async function save() {
@@ -75,6 +100,9 @@ export function EvaluationTemplatePresentationWorkspace() {
     draft.semester = template.academicPeriod.semester === 1 ? "1" : "2";
   }
   const view = buildRawEvaluationPlanDocument(template, draft);
+  const activeSectionId = template.sections.some((section) => section.id === selectedSectionId)
+    ? selectedSectionId
+    : null;
 
   return <div className="workspace-stack">
     <section className={`panel ${styles.controls}`}>
@@ -120,11 +148,29 @@ export function EvaluationTemplatePresentationWorkspace() {
           if (!window.confirm("현재 항목과 표 구조를 기본 구성으로 바꿉니다. 이전 양식의 교과 초안과 연결이 달라질 수 있습니다. 계속하시겠습니까?")) return;
           update((current) => ({ ...current, sections: createDefaultEvaluationTemplate().sections, source: undefined }));
         }}>항목을 기본 구성으로 복원</button>
+        {dirty ? <p role="status" className={styles.unsavedStatus}>저장되지 않은 변경 사항이 있습니다.</p> : null}
       </div>
       {error ? <p role="alert" className="validation-error-box">{error}</p> : null}
       {message ? <p role="status" className="validation-success">{message}</p> : null}
     </section>
-    <div className={styles.previewLabel}>양식 미리보기 · 교과 내용은 작성 화면에서 입력합니다.</div>
-    <RawEvaluationPlanDocument view={view} />
+    <div className={styles.previewWorkspace}>
+      <section className={styles.previewColumn} aria-label="학교 양식 미리보기">
+        <div className={styles.previewLabel}>양식 미리보기 · 항목을 선택해 설정을 수정합니다.</div>
+        <InteractiveTemplatePreview
+          view={view}
+          selectedSectionId={activeSectionId}
+          onSelectSection={setSelectedSectionId}
+        />
+      </section>
+      <div className={styles.inspectorColumn}>
+        <EvaluationTemplateSectionInspector
+          sections={template.sections}
+          selectedSectionId={activeSectionId}
+          disabled={busy}
+          onSectionChange={updateSection}
+          onMoveSection={moveSection}
+        />
+      </div>
+    </div>
   </div>;
 }

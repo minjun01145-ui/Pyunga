@@ -37,7 +37,10 @@ function RawSection({ section }: { section: RawEvaluationPlanSectionView }) {
   const levelClass = styles[`level${section.level}` as keyof typeof styles];
 
   return (
-    <section className={`${styles.documentSection} ${orientationClass} ${levelClass}`}>
+    <section
+      className={`${styles.documentSection} ${orientationClass} ${levelClass}`}
+      data-template-section-id={section.id}
+    >
       <div className={styles.sectionHeading}>
         {section.marker ? <span className={styles.headingMarker}>{section.marker}</span> : null}
         <span className={styles.headingText}>{section.title}</span>

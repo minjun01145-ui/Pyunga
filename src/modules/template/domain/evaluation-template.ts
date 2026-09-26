@@ -11,6 +11,21 @@ import {
 
 export type EvaluationTemplateSectionLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
+export const EVALUATION_TEMPLATE_SECTION_LEVELS: readonly EvaluationTemplateSectionLevel[] = [1, 2, 3, 4, 5, 6, 7];
+
+export function parseEvaluationTemplateSectionLevel(value: string): EvaluationTemplateSectionLevel | undefined {
+  switch (value) {
+    case "1": return 1;
+    case "2": return 2;
+    case "3": return 3;
+    case "4": return 4;
+    case "5": return 5;
+    case "6": return 6;
+    case "7": return 7;
+    default: return undefined;
+  }
+}
+
 export type EvaluationTemplateSection = {
   id: string;
   title: string;
@@ -41,6 +56,8 @@ export type EvaluationTemplateSectionInput = Pick<EvaluationTemplateSection, "id
   sourcePage?: number;
   config?: EvaluationTemplateSectionConfig;
 };
+
+export type EvaluationTemplateSectionPatch = Partial<Omit<EvaluationTemplateSectionInput, "id">>;
 
 const MAX_SECTION_COUNT = 100;
 
@@ -90,6 +107,19 @@ export function normalizeEvaluationTemplateSections(
   }
 
   return normalized;
+}
+
+export function updateEvaluationTemplateSection(
+  sections: readonly EvaluationTemplateSection[],
+  sectionId: string,
+  patch: EvaluationTemplateSectionPatch,
+): EvaluationTemplateSection[] {
+  const index = sections.findIndex((section) => section.id === sectionId);
+  if (index < 0) return [...sections];
+
+  const inputs = sections.map(toSectionInput);
+  inputs[index] = { ...inputs[index], ...patch };
+  return normalizeEvaluationTemplateSections(inputs);
 }
 
 export function getEvaluationTemplateIssues(template: EvaluationTemplate): string[] {

@@ -1,0 +1,79 @@
+.inspector {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  min-width: 0;
+}
+
+.header h2 {
+  margin-bottom: 4px;
+}
+
+.header p {
+  margin: 0;
+}
+
+.controls {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.levelField {
+  max-width: 100%;
+}
+
+.formatSummary {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.formatSummary h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.formatSummary p {
+  margin: 3px 0 0;
+}
+
+.formatDetails {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.formatDetails summary {
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.formatDetails[open] summary {
+  margin-bottom: 14px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding-top: 2px;
+}
+
+.existingEditorLink {
+  justify-self: start;
+  font-size: 14px;
+}

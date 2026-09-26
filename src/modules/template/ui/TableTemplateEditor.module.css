@@ -3,6 +3,14 @@
   gap: 12px;
 }
 
+.compact .toolbarDivider {
+  display: none;
+}
+
+.compact .cellOptionGrid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;

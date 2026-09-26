@@ -1,0 +1,46 @@
+.preview {
+  position: relative;
+  width: 100%;
+}
+
+.selectionLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.selectionButton {
+  position: absolute;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.selectionButton:hover {
+  border-color: #5a8ac5;
+  background: rgb(39 104 181 / 5%);
+}
+
+.selectionButton:focus-visible {
+  z-index: 1;
+  outline: 2px solid #205493;
+  outline-offset: 1px;
+}
+
+.selected,
+.selected:hover {
+  border: 1.5px solid #205493;
+  background: rgb(39 104 181 / 8%);
+}
+
+@media print {
+  .selectionLayer {
+    display: none;
+  }
+}

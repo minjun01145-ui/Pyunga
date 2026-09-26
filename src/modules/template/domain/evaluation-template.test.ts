@@ -4,6 +4,7 @@ import {
   moveEvaluationTemplateSection,
   normalizeEvaluationTemplateSections,
   removeEvaluationTemplateSection,
+  updateEvaluationTemplateSection,
 } from "./evaluation-template";
 
 describe("normalizeEvaluationTemplateSections", () => {
@@ -66,5 +67,28 @@ describe("normalizeEvaluationTemplateSections", () => {
 
     const remaining = removeEvaluationTemplateSection(sections, 1);
     expect(remaining.map((section) => section.id)).toEqual(["a", "b"]);
+  });
+
+  it("keeps a section identity when its title, level, or config changes", () => {
+    const sections = normalizeEvaluationTemplateSections([
+      { id: "policy", title: "평가 방침", level: 1, config: { type: "title_only" } },
+      { id: "detail-parent", title: "세부 기준", level: 2 },
+      { id: "detail", title: "적용 기준", level: 2 },
+    ]);
+
+    const updated = updateEvaluationTemplateSection(sections, "detail", {
+      title: "수정된 평가 방침",
+      level: 3,
+      config: { type: "outline_text", numberingLevels: ["decimal_dot"], commonText: "학교 공통 문구" },
+    });
+
+    expect(updated[2]).toMatchObject({
+      id: "detail",
+      title: "수정된 평가 방침",
+      level: 3,
+      parentId: "detail-parent",
+      config: { type: "outline_text", commonText: "학교 공통 문구" },
+    });
+    expect(updated.map((section) => section.id)).toEqual(["policy", "detail-parent", "detail"]);
   });
 });

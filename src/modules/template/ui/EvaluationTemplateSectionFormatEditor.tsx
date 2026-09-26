@@ -23,6 +23,8 @@ import styles from "./EvaluationTemplateCurrentSectionWorkspace.module.css";
 
 type EvaluationTemplateSectionFormatEditorProps = {
   config?: EvaluationTemplateSectionConfig;
+  compact?: boolean;
+  disabled?: boolean;
   onChange: (config: EvaluationTemplateSectionConfig) => void;
 };
 
@@ -37,8 +39,38 @@ const formatLabels: Record<EvaluationTemplateSectionFormatType, string> = {
   performance_assessment_table: "수행평가 계획 표",
 };
 
+export function getEvaluationTemplateSectionFormatLabel(
+  config?: EvaluationTemplateSectionConfig,
+): string {
+  return config ? formatLabels[config.type] : "양식 미설정";
+}
+
+export function getEvaluationTemplateSectionFormatSummary(
+  config?: EvaluationTemplateSectionConfig,
+): string {
+  if (!config) return "입력 양식이 지정되지 않았습니다.";
+  if (config.type === "title_only") return "본문 없이 제목만 표시합니다.";
+  if (config.type === "outline_text") {
+    const numbering = config.numberingLevels.map(numberingLabel).join(" → ");
+    return `번호 단계 ${numbering} · 학교 공통 문구 ${config.commonText?.trim() ? "입력됨" : "없음"}`;
+  }
+
+  const details = [
+    config.layout.orientation === "landscape" ? "가로" : "세로",
+    `머리글 ${config.layout.repeatHeader ? "반복" : "반복 안 함"}`,
+  ];
+  if (config.type === "teaching_learning_table") {
+    details.push(config.calendarRows.enabled
+      ? `학사일정 행 ${config.calendarRows.periodUnit === "month" ? "월 단위" : "주 단위"}`
+      : "학사일정 행 미사용");
+  }
+  return details.join(" · ");
+}
+
 export function EvaluationTemplateSectionFormatEditor({
   config,
+  compact = false,
+  disabled = false,
   onChange,
 }: EvaluationTemplateSectionFormatEditorProps) {
   const [selectedType, setSelectedType] = useState<EvaluationTemplateSectionFormatType>(
@@ -83,10 +115,10 @@ export function EvaluationTemplateSectionFormatEditor({
   }
 
   return (
-    <div className={styles.formatConfigured}>
+    <div className={`${styles.formatConfigured} ${compact ? styles.compact : ""}`}>
       <div className={styles.formatHeader}>
         <div>
-          <h2 className="subsection-title">{formatLabels[config.type]}</h2>
+          <h2 className="subsection-title">{getEvaluationTemplateSectionFormatLabel(config)}</h2>
           <p className="muted small-copy">
             {config.type === "title_only"
               ? "본문 없이 제목만 문서에 표시합니다."
@@ -142,6 +174,8 @@ export function EvaluationTemplateSectionFormatEditor({
           <TableTemplateEditor
             key={config.type}
             document={config.table}
+            editable={!disabled}
+            compact={compact}
             onChange={(table) => handleConfigChange(withTable(config, table))}
           />
         </>

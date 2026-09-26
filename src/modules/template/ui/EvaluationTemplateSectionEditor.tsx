@@ -2,9 +2,12 @@
 
 import {
   canMoveEvaluationTemplateSection,
+  EVALUATION_TEMPLATE_SECTION_LEVELS,
   moveEvaluationTemplateSection,
   normalizeEvaluationTemplateSections,
+  parseEvaluationTemplateSectionLevel,
   removeEvaluationTemplateSection,
+  updateEvaluationTemplateSection,
   type EvaluationTemplate,
   type EvaluationTemplateSection,
   type EvaluationTemplateSectionInput,
@@ -28,18 +31,14 @@ const levelLabels: Record<EvaluationTemplateSectionLevel, string> = {
   7: "(가) 단위",
 };
 
-const levels: EvaluationTemplateSectionLevel[] = [1, 2, 3, 4, 5, 6, 7];
-
 export function EvaluationTemplateSectionEditor({
   template,
   onChange,
 }: EvaluationTemplateSectionEditorProps) {
   const titleById = new Map(template.sections.map((section) => [section.id, section.title]));
 
-  function updateSection(index: number, patch: Partial<EvaluationTemplateSectionInput>) {
-    const inputs = template.sections.map(toSectionInput);
-    inputs[index] = { ...inputs[index], ...patch };
-    onChange({ ...template, sections: normalizeEvaluationTemplateSections(inputs) });
+  function updateSection(sectionId: string, patch: Partial<Omit<EvaluationTemplateSectionInput, "id">>) {
+    onChange({ ...template, sections: updateEvaluationTemplateSection(template.sections, sectionId, patch) });
   }
 
   function moveSection(index: number, direction: -1 | 1) {
@@ -76,10 +75,12 @@ export function EvaluationTemplateSectionEditor({
               <select
                 value={section.level}
                 onChange={(changeEvent) =>
-                  updateSection(index, { level: parseSectionLevel(changeEvent.target.value) })
+                  updateSection(section.id, {
+                    level: parseEvaluationTemplateSectionLevel(changeEvent.target.value) ?? 1,
+                  })
                 }
               >
-                {levels.map((level) => (
+                {EVALUATION_TEMPLATE_SECTION_LEVELS.map((level) => (
                   <option key={level} value={level}>{levelLabels[level]}</option>
                 ))}
               </select>
@@ -89,9 +90,9 @@ export function EvaluationTemplateSectionEditor({
               sectionId={section.id}
               title={section.title}
               teacherEditableTitle={section.teacherEditableTitle}
-              onTitleChange={(title) => updateSection(index, { title })}
+              onTitleChange={(title) => updateSection(section.id, { title })}
               onTeacherEditableTitleChange={(teacherEditableTitle) =>
-                updateSection(index, { teacherEditableTitle })
+                updateSection(section.id, { teacherEditableTitle })
               }
             />
 
@@ -144,18 +145,6 @@ function toSectionInput(section: EvaluationTemplateSection): EvaluationTemplateS
     ...(section.sourcePage ? { sourcePage: section.sourcePage } : {}),
     ...(section.config ? { config: section.config } : {}),
   };
-}
-
-function parseSectionLevel(value: string): EvaluationTemplateSectionLevel {
-  switch (value) {
-    case "2": return 2;
-    case "3": return 3;
-    case "4": return 4;
-    case "5": return 5;
-    case "6": return 6;
-    case "7": return 7;
-    default: return 1;
-  }
 }
 
 function createSectionId(): string {
