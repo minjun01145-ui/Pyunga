@@ -54,6 +54,7 @@ export function UserManagementWorkspace() {
   const [editingTeacher, setEditingTeacher] = useState<EditingTeacher | null>(null);
   const [selectedPasswordUsers, setSelectedPasswordUsers] = useState<string[]>([]);
   const [copyFallbackOpen, setCopyFallbackOpen] = useState(false);
+  const [copyFallbackText, setCopyFallbackText] = useState("");
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [pastedText, setPastedText] = useState("");
@@ -94,12 +95,6 @@ export function UserManagementWorkspace() {
     () => availablePasswordUsers.filter((user) => selectedPasswordUsers.includes(user.id)),
     [availablePasswordUsers, selectedPasswordUsers],
   );
-  const copyText = selectedPasswords.map((user) => [
-    user.displayName,
-    subjectById.get(user.subjectId ?? "")?.name ?? user.subjectLabel,
-    user.loginIdentifier,
-    user.temporaryPassword,
-  ].join("\t")).join("\n");
 
   async function addSubject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -336,11 +331,43 @@ export function UserManagementWorkspace() {
   }
 
   async function copySelectedPasswords() {
-    if (!copyText) return;
+    const selectedUserIds = [...new Set(selectedPasswordUsers)];
+    if (selectedUserIds.length === 0) return;
+    setError(null);
+
+    let freshUsers: TeacherAccountSummary[];
     try {
-      await navigator.clipboard.writeText(copyText);
+      const search = new URLSearchParams();
+      for (const userId of selectedUserIds) search.append("userId", userId);
+      const response = await authenticatedFetch(`/api/admin/evaluation/users?${search.toString()}`, { cache: "no-store" });
+      const body = await response.json() as { users?: TeacherAccountSummary[]; error?: string };
+      if (!response.ok || !body.users) throw new Error(body.error ?? "선택한 계정의 최신 임시 비밀번호를 확인하지 못했습니다.");
+      freshUsers = body.users;
+    } catch (copyError) {
+      setError(copyError instanceof Error ? copyError.message : "선택한 계정의 최신 임시 비밀번호를 확인하지 못했습니다.");
+      return;
+    }
+
+    const latestCopyText = createSelectedTemporaryPasswordCopyText(freshUsers, selectedUserIds, subjectById);
+    const freshUsersById = new Map(freshUsers.map((user) => [user.id, user]));
+    setUsers((current) => current.map((user) => freshUsersById.get(user.id) ?? user));
+    if (!latestCopyText) {
       setCopyFallbackOpen(false);
-      setCopyMessage(`${selectedPasswords.length}개 임시 비밀번호를 복사했습니다.`);
+      setCopyFallbackText("");
+      setCopyMessage("선택한 계정 중 임시 비밀번호를 다시 확인할 수 없는 항목이 있습니다. 목록을 확인한 뒤 다시 복사해 주세요.");
+      try {
+        await loadManagementData();
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "최신 사용자 목록을 불러오지 못했습니다.");
+      }
+      return;
+    }
+
+    setCopyFallbackText(latestCopyText);
+    try {
+      await navigator.clipboard.writeText(latestCopyText);
+      setCopyFallbackOpen(false);
+      setCopyMessage(`${selectedUserIds.length}개 임시 비밀번호를 복사했습니다.`);
     } catch {
       setCopyFallbackOpen(true);
       setCopyMessage("아래 내용 전체를 선택해 복사해 주세요.");
@@ -597,7 +624,7 @@ export function UserManagementWorkspace() {
               <button className="secondary-button" type="button" disabled={selectedPasswords.length === 0} onClick={() => void copySelectedPasswords()}>선택한 임시 비밀번호 복사</button>
               {copyMessage ? <p role="status" className="small-copy">{copyMessage}</p> : null}
             </div>
-            {copyFallbackOpen ? <textarea aria-label="복사할 임시 비밀번호 목록" readOnly rows={Math.min(10, selectedPasswords.length + 1)} value={copyText} onFocus={(event) => event.currentTarget.select()} /> : null}
+            {copyFallbackOpen ? <textarea aria-label="복사할 임시 비밀번호 목록" readOnly rows={Math.min(10, selectedPasswordUsers.length + 1)} value={copyFallbackText} onFocus={(event) => event.currentTarget.select()} /> : null}
           </>
         )}
       </section>
@@ -606,6 +633,30 @@ export function UserManagementWorkspace() {
       {message ? <p role="status" className="validation-success">{message}</p> : null}
     </div>
   );
+}
+
+export function createSelectedTemporaryPasswordCopyText(
+  users: readonly TeacherAccountSummary[],
+  selectedUserIds: readonly string[],
+  subjectById: ReadonlyMap<string, SchoolSubject>,
+): string | undefined {
+  if (selectedUserIds.length === 0) return undefined;
+  const usersById = new Map(users.map((user) => [user.id, user]));
+  const selectedUsers: TeacherAccountSummary[] = [];
+  for (const userId of selectedUserIds) {
+    const user = usersById.get(userId);
+    if (!user || !user.active || user.temporaryPasswordState !== "available" || !user.temporaryPassword) {
+      return undefined;
+    }
+    selectedUsers.push(user);
+  }
+
+  return selectedUsers.map((user) => [
+    user.displayName,
+    subjectById.get(user.subjectId ?? "")?.name ?? user.subjectLabel,
+    user.loginIdentifier,
+    user.temporaryPassword,
+  ].join("\t")).join("\n");
 }
 
 function formatTeachingGrades(grades: TeachingGrade[]): string {

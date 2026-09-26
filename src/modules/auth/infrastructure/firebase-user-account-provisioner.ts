@@ -35,6 +35,13 @@ export class TeacherAccountPasswordConflictError extends Error {
   }
 }
 
+export class TeacherAccountSubjectUnavailableError extends Error {
+  constructor() {
+    super("과목 분류 상태가 변경되었습니다. 작성 대상 과목을 다시 선택해 주세요.");
+    this.name = "TeacherAccountSubjectUnavailableError";
+  }
+}
+
 export class FirebaseUserAccountProvisioner implements UserAccountProvisioner {
   async provision(command: ProvisionUserCommand): Promise<ProvisionedUser> {
     const temporaryPassword = createTemporaryPassword();
@@ -57,7 +64,7 @@ export class FirebaseUserAccountProvisioner implements UserAccountProvisioner {
 
     const userDocument = database.collection("users").doc(authUser.uid);
     try {
-      await userDocument.create({
+      const userData = {
         schoolId: command.schoolId,
         displayName: command.displayName,
         ...(command.subjectLabel ? { subjectLabel: command.subjectLabel } : {}),
@@ -70,6 +77,17 @@ export class FirebaseUserAccountProvisioner implements UserAccountProvisioner {
         mustChangePassword: true,
         failedLoginAttempts: 0,
         loginLockedUntil: 0,
+      };
+      await database.runTransaction(async (transaction) => {
+        if (command.subjectId) {
+          const subjectDocument = database.collection("schools").doc(command.schoolId)
+            .collection("subjects").doc(command.subjectId);
+          const subjectSnapshot = await transaction.get(subjectDocument);
+          if (!subjectSnapshot.exists || subjectSnapshot.data()?.activeForPlans !== true) {
+            throw new TeacherAccountSubjectUnavailableError();
+          }
+        }
+        transaction.create(userDocument, userData);
       });
 
     } catch (error) {
@@ -127,17 +145,20 @@ export class FirebaseUserAccountProvisioner implements UserAccountProvisioner {
   }
 }
 
-export async function listSchoolTeacherAccounts(schoolId: string): Promise<TeacherAccountSummary[]> {
-  const snapshot = await getFirebaseAdminDatabase()
-    .collection("users")
-    .where("schoolId", "==", schoolId)
-    .get();
+export async function listSchoolTeacherAccounts(
+  schoolId: string,
+  userIds?: readonly string[],
+): Promise<TeacherAccountSummary[]> {
+  const userCollection = getFirebaseAdminDatabase().collection("users");
+  const documents = userIds
+    ? await Promise.all([...new Set(userIds)].map((userId) => userCollection.doc(userId).get()))
+    : (await userCollection.where("schoolId", "==", schoolId).get()).docs;
 
   const users: TeacherAccountSummary[] = [];
-  for (const document of snapshot.docs) {
-    let data = document.data();
+  for (const document of documents) {
+    let data = document.data() ?? {};
     let profile = parseUserProfile(document.id, data);
-    if (profile?.role !== "teacher") continue;
+    if (profile?.role !== "teacher" || profile.schoolId !== schoolId) continue;
     let passwordDelivery = summarizePasswordDelivery(profile.mustChangePassword, profile.active, data.temporaryPasswordDelivery);
     if (passwordDelivery.temporaryPasswordState === "available") {
       const currentSnapshot = await document.ref.get();
@@ -189,6 +210,15 @@ export async function updateSchoolTeacherAccount(params: {
     const profile = parseUserProfile(params.userId, data);
     if (!profile || profile.schoolId !== params.schoolId || profile.role !== "teacher") {
       throw new TeacherAccountNotFoundError();
+    }
+
+    if (params.subjectId && params.subjectId !== profile.subjectId) {
+      const subjectDocument = database.collection("schools").doc(params.schoolId)
+        .collection("subjects").doc(params.subjectId);
+      const subjectSnapshot = await transaction.get(subjectDocument);
+      if (!subjectSnapshot.exists || subjectSnapshot.data()?.activeForPlans !== true) {
+        throw new TeacherAccountSubjectUnavailableError();
+      }
     }
 
     const patch = {

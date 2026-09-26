@@ -17,18 +17,15 @@ export async function requireAuthenticatedProfile(
   allowedRoles?: readonly UserRole[],
 ): Promise<UserProfile> {
   if (isAuthenticationDisabled()) {
-    return {
-      id: "development-user",
-      schoolId: "development-school",
-      displayName: "테스트 사용자",
-      teachingGrades: [1, 2, 3],
-      role: "evaluation_admin",
-      active: true,
-      mustChangePassword: false,
-    };
+    return developmentUserProfile();
   }
 
   return requireFirebaseAuthenticatedProfileWithPasswordChanged(request, allowedRoles);
+}
+
+export async function requireAuthenticatedSessionProfile(request: Request): Promise<UserProfile> {
+  if (isAuthenticationDisabled()) return developmentUserProfile();
+  return requireFirebaseAuthenticatedProfile(request);
 }
 
 export async function requireFirebaseAuthenticatedProfileWithPasswordChanged(
@@ -81,4 +78,16 @@ export async function requireFirebaseAuthenticatedProfile(
   }
 
   return profile;
+}
+
+function developmentUserProfile(): UserProfile {
+  return {
+    id: "development-user",
+    schoolId: "development-school",
+    displayName: "테스트 사용자",
+    teachingGrades: [1, 2, 3],
+    role: "evaluation_admin",
+    active: true,
+    mustChangePassword: false,
+  };
 }

@@ -431,7 +431,8 @@ function parseColwidth(value: unknown, colspan: number): number[] | null | undef
   if (!Array.isArray(value) || value.length !== colspan) return undefined;
   const widths: number[] = [];
   for (const rawWidth of value) {
-    if (typeof rawWidth !== "number" || !Number.isFinite(rawWidth) || rawWidth < 20 || rawWidth > 4000) {
+    if (typeof rawWidth !== "number" || !Number.isFinite(rawWidth)
+      || (rawWidth !== 0 && rawWidth < 20) || rawWidth > 4000) {
       return undefined;
     }
     widths.push(Math.round(rawWidth));

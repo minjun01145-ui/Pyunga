@@ -196,6 +196,22 @@ describe("table template", () => {
     expect(getTableTemplateColumnWidths(document)).toEqual([90, 180, 120]);
   });
 
+  it.each([
+    { widths: [120, 0], rendered: [120, 120] },
+    { widths: [0, 120], rendered: [120, 120] },
+    { widths: [0, 0], rendered: [null, null] },
+  ])("round-trips ProseMirror's unspecified widths $widths", ({ widths, rendered }) => {
+    const parsed = parseTableTemplateDocument(documentWithColwidth(widths));
+    expect(parsed?.content[0].content[0].content[0].attrs.colwidth).toEqual(widths);
+    expect(parsed && getTableTemplateColumnWidths(parsed)).toEqual(rendered);
+    const reloaded = parseTableTemplateDocument(JSON.parse(JSON.stringify(parsed)));
+    expect(reloaded && getTableTemplateColumnWidths(reloaded)).toEqual(rendered);
+  });
+
+  it.each([{ widths: [-1] }, { widths: [1] }, { widths: [19] }])("continues to reject invalid small widths $widths", ({ widths }) => {
+    expect(parseTableTemplateDocument(documentWithColwidth(widths))).toBeUndefined();
+  });
+
   it("accepts long plain-text criteria inside a table cell", () => {
     const longText = "평가기준".repeat(300);
     const parsed = parseTableTemplateDocument({
@@ -305,6 +321,23 @@ describe("table template", () => {
     })).toBeUndefined();
   });
 });
+
+function documentWithColwidth(widths: number[]) {
+  return {
+    type: "doc",
+    content: [{
+      type: "table",
+      content: [{
+        type: "tableRow",
+        content: [{
+          type: "tableCell",
+          attrs: { colspan: widths.length, rowspan: 1, colwidth: widths },
+          content: [{ type: "paragraph" }],
+        }],
+      }],
+    }],
+  };
+}
 
 function cell(text: string) {
   return {

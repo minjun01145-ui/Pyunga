@@ -8,6 +8,7 @@ import {
   RequestAuthenticationError,
   requireFirebaseAuthenticatedProfileWithPasswordChanged,
   TeacherAccountPasswordConflictError,
+  TeacherAccountSubjectUnavailableError,
 } from "@/modules/auth/server";
 import { getSchoolSubject, SchoolSubjectNotFoundError } from "@/modules/school/server";
 
@@ -27,8 +28,12 @@ export async function GET(request: Request) {
       request,
       EVALUATION_MANAGEMENT_ROLES,
     );
+    const userIds = new URL(request.url).searchParams.getAll("userId");
+    if (userIds.some((userId) => !/^[A-Za-z0-9_-]{1,128}$/.test(userId))) {
+      return NextResponse.json({ error: "사용자 계정 식별자가 올바르지 않습니다." }, { status: 400 });
+    }
     return NextResponse.json({
-      users: await listSchoolTeacherAccounts(profile.schoolId),
+      users: await listSchoolTeacherAccounts(profile.schoolId, userIds.length > 0 ? userIds : undefined),
     }, { headers: { "Cache-Control": "no-store, private" } });
   } catch (error) {
     if (error instanceof RequestAuthenticationError) {
@@ -85,6 +90,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "사용 중인 과목 분류를 선택해 주세요." }, { status: 409 });
     }
     if (error instanceof TeacherAccountPasswordConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    if (error instanceof TeacherAccountSubjectUnavailableError) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
     console.error("Teacher account creation failed", error);

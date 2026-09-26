@@ -5,6 +5,7 @@ import type { EvaluationPlanDraft } from "@/modules/evaluation-plan";
 import { DEMO_TEACHER_EVALUATION_CONTEXT } from "@/modules/evaluation-plan";
 import {
   createTableTemplateDocument,
+  parseTableTemplateDocument,
   type EvaluationTemplate,
 } from "@/modules/template";
 
@@ -154,6 +155,36 @@ describe("raw evaluation plan document", () => {
       expect(tableSection.content.table.bodyGroups[0][0][1].text).toBe("□ 발표 준비\n□ 상호 평가");
     }
     expect(JSON.stringify(template)).toBe(templateBefore);
+  });
+
+  it("resolves ProseMirror zero sentinels to visible widths in the printable table view", () => {
+    const editorDocument = createTableTemplateDocument([
+      [{ kind: "text", text: "A-B", header: true, colspan: 2, colwidth: [120, 20] }],
+      [{ kind: "text", text: "A" }, { kind: "text", text: "B" }],
+    ]);
+    editorDocument.content[0].content[0].content[0].attrs.colwidth = [120, 0];
+    const table = parseTableTemplateDocument(JSON.parse(JSON.stringify(editorDocument)));
+    expect(table).toBeDefined();
+    if (!table) return;
+
+    const view = buildRawEvaluationPlanDocument({
+      sections: [{
+        id: "table",
+        title: "평가 내용",
+        level: 1,
+        teacherEditableTitle: false,
+        order: 0,
+        config: {
+          type: "written_assessment_table",
+          layout: { orientation: "landscape", repeatHeader: false },
+          table,
+        },
+      }],
+    }, draft);
+    const content = view.sections[0].content;
+
+    expect(content.kind).toBe("table");
+    if (content.kind === "table") expect(content.table.columnWidths).toEqual([120, 120]);
   });
 
   it("adds the assigned subject to the document title without duplicating its suffix", () => {

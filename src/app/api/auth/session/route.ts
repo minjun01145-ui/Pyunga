@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { RequestAuthenticationError, requireAuthenticatedProfile } from "@/modules/auth/server";
+import { RequestAuthenticationError, requireAuthenticatedSessionProfile } from "@/modules/auth/server";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
-    const profile = await requireAuthenticatedProfile(request);
+    const profile = await requireAuthenticatedSessionProfile(request);
     return NextResponse.json({ profile }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof RequestAuthenticationError) {

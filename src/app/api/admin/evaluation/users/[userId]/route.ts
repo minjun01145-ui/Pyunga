@@ -7,6 +7,7 @@ import {
   RequestAuthenticationError,
   requireFirebaseAuthenticatedProfileWithPasswordChanged,
   TeacherAccountNotFoundError,
+  TeacherAccountSubjectUnavailableError,
   updateSchoolTeacherAccount,
 } from "@/modules/auth/server";
 import { getSchoolSubject, SchoolSubjectNotFoundError } from "@/modules/school/server";
@@ -64,6 +65,9 @@ export async function PATCH(
     }
     if (error instanceof SchoolSubjectNotFoundError) {
       return NextResponse.json({ error: "유효한 과목 분류를 선택해 주세요." }, { status: 409 });
+    }
+    if (error instanceof TeacherAccountSubjectUnavailableError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
     }
     console.error("Teacher account update failed", error);
     return NextResponse.json({ error: "사용자 담당 정보를 저장하지 못했습니다." }, { status: 500 });
