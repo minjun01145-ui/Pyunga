@@ -86,6 +86,7 @@ export function EvaluationTemplatePresentationWorkspace() {
       if (!response.ok) throw new Error(body.error ?? "설정을 저장하지 못했습니다.");
       setRevision(body.revision);
       setDirty(false);
+      setSelectedSectionId(null);
       setMessage("학교 양식을 저장했습니다. 교과 미리보기와 인쇄에 적용됩니다.");
       window.dispatchEvent(new Event("evaluation-template-saved"));
     } catch (failure) {
@@ -113,7 +114,9 @@ export function EvaluationTemplatePresentationWorkspace() {
         <label className="field"><span>학교명</span><input maxLength={80} value={presentation.schoolName}
           onChange={(event) => update((current) => ({ ...current, presentation: { ...resolveEvaluationTemplatePresentation(current.presentation), schoolName: event.target.value } }))} /></label>
         <label className="field"><span>문서 제목</span><input maxLength={200} value={template.documentTitle ?? ""}
-          onChange={(event) => update((current) => ({ ...current, documentTitle: event.target.value }))} /></label>
+          onChange={(event) => update((current) => ({ ...current, documentTitle: event.target.value }))} />
+          <small className="muted small-copy">교과명은 담당 교사의 교과 정보에 따라 제목 앞에 자동으로 표시됩니다.</small>
+        </label>
         <label className="field"><span>작성 학년도</span><input type="number" min={2000} max={2100} value={template.academicPeriod?.academicYear ?? ""}
           onChange={(event) => update((current) => ({ ...current, academicPeriod: { academicYear: Number(event.target.value), semester: current.academicPeriod?.semester ?? 1 } }))} /></label>
         <label className="field"><span>작성 학기</span><select value={template.academicPeriod?.semester ?? ""}
@@ -159,18 +162,18 @@ export function EvaluationTemplatePresentationWorkspace() {
         <InteractiveTemplatePreview
           view={view}
           selectedSectionId={activeSectionId}
-          onSelectSection={setSelectedSectionId}
+          onSelectSection={(sectionId) => setSelectedSectionId((current) => current === sectionId ? null : sectionId)}
+          sectionInspector={
+            <EvaluationTemplateSectionInspector
+              sections={template.sections}
+              selectedSectionId={activeSectionId}
+              disabled={busy}
+              onSectionChange={updateSection}
+              onMoveSection={moveSection}
+            />
+          }
         />
       </section>
-      <div className={styles.inspectorColumn}>
-        <EvaluationTemplateSectionInspector
-          sections={template.sections}
-          selectedSectionId={activeSectionId}
-          disabled={busy}
-          onSectionChange={updateSection}
-          onMoveSection={moveSection}
-        />
-      </div>
     </div>
   </div>;
 }

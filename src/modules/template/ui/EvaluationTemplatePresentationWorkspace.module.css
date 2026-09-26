@@ -6,24 +6,14 @@
 .preset:has(input:checked) { border-color: #444; background: #f7f7f7; }
 .previewLabel { color: #555; font-size: 14px; }
 .previewWorkspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1.85fr) minmax(290px, 0.95fr);
-  align-items: start;
-  gap: 16px;
+  display: block;
 }
-.previewColumn,
-.inspectorColumn { min-width: 0; }
+.previewColumn { min-width: 0; }
 .previewColumn { display: grid; gap: 10px; }
-.inspectorColumn { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; }
 .unsavedStatus { align-self: center; margin: 0; color: #8a3b10; font-size: 14px; }
 @media (max-width: 700px) { .fields { grid-template-columns: 1fr; } }
-@media (max-width: 1050px) {
-  .previewWorkspace { grid-template-columns: minmax(0, 1fr); }
-  .inspectorColumn { position: static; max-height: none; overflow: visible; }
-}
 @media print {
   .controls,
-  .previewLabel,
-  .inspectorColumn { display: none; }
+  .previewLabel { display: none; }
   .previewWorkspace { display: block; }
 }

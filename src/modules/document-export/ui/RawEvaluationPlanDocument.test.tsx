@@ -58,4 +58,19 @@ describe("RawEvaluationPlanDocument section identity contract", () => {
     expect(markup).toContain("수정된 평가 방침");
     expect(markup).toContain("변경된 공통 문구");
   });
+
+  it("renders an inline settings panel after the selected section", () => {
+    const view = buildRawEvaluationPlanDocument(template, createEmptyEvaluationPlanDraft());
+    const markup = renderToStaticMarkup(
+      <RawEvaluationPlanDocument
+        view={view}
+        afterSection={(section) => section.id === "policy" ? <aside>선택 항목 설정</aside> : null}
+      />,
+    );
+
+    expect(markup.indexOf('data-template-section-id="policy"'))
+      .toBeLessThan(markup.indexOf("선택 항목 설정"));
+    expect(markup.indexOf("선택 항목 설정"))
+      .toBeLessThan(markup.indexOf('data-template-section-id="assessment-table"'));
+  });
 });

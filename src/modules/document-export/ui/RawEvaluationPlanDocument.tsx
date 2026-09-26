@@ -1,3 +1,5 @@
+import { Fragment, type ReactNode } from "react";
+
 import type {
   RawEvaluationPlanCellView,
   RawEvaluationPlanDocumentView,
@@ -7,7 +9,13 @@ import type {
 
 import styles from "./RawEvaluationPlanDocument.module.css";
 
-export function RawEvaluationPlanDocument({ view }: { view: RawEvaluationPlanDocumentView }) {
+export function RawEvaluationPlanDocument({
+  view,
+  afterSection,
+}: {
+  view: RawEvaluationPlanDocumentView;
+  afterSection?: (section: RawEvaluationPlanSectionView) => ReactNode;
+}) {
   const headerOrientationClass = view.firstPageOrientation === "landscape"
     ? styles.orientationLandscape
     : styles.orientationPortrait;
@@ -24,7 +32,10 @@ export function RawEvaluationPlanDocument({ view }: { view: RawEvaluationPlanDoc
       </header>
 
       {view.sections.map((section) => (
-        <RawSection key={section.id} section={section} />
+        <Fragment key={section.id}>
+          <RawSection section={section} />
+          {afterSection?.(section)}
+        </Fragment>
       ))}
     </article>
   );

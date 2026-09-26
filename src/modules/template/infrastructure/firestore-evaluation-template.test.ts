@@ -29,7 +29,7 @@ describe("loadEvaluationTemplateState", () => {
     const state = await loadEvaluationTemplateState("school-1");
 
     expect(state.revision).toBe(0);
-    expect(state.template?.documentTitle).toBe("교수학습 및 평가 운영 계획");
+    expect(state.template?.documentTitle).toBe("교수학습 및 평가 계획");
     expect(state.template?.sections.every((section) => section.config !== undefined)).toBe(true);
   });
 

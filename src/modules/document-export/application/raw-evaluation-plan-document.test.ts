@@ -140,7 +140,7 @@ describe("raw evaluation plan document", () => {
     const view = buildRawEvaluationPlanDocument(template, draft);
     const tableSection = view.sections[1];
 
-    expect(view.title).toBe("학교 평가계획");
+    expect(view.title).toBe("영어과 학교 평가계획");
     expect(view.firstPageOrientation).toBe("landscape");
     expect(view.sections[0].title).toBe("교과에서 정한 제목");
     expect(view.sections[0].orientation).toBe("landscape");
@@ -154,6 +154,33 @@ describe("raw evaluation plan document", () => {
       expect(tableSection.content.table.bodyGroups[0][0][1].text).toBe("□ 발표 준비\n□ 상호 평가");
     }
     expect(JSON.stringify(template)).toBe(templateBefore);
+  });
+
+  it("adds the assigned subject to the document title without duplicating its suffix", () => {
+    const template: EvaluationTemplate = {
+      documentTitle: "영어과 교수학습 및 평가 계획",
+      sections: [],
+    };
+    const subjectDraft = { ...draft, subjectLabel: "영어" };
+
+    expect(buildRawEvaluationPlanDocument(template, subjectDraft).title)
+      .toBe("영어과 교수학습 및 평가 계획");
+    expect(buildRawEvaluationPlanDocument(template, { ...subjectDraft, subjectLabel: "영어과" }).title)
+      .toBe("영어과 교수학습 및 평가 계획");
+    expect(buildRawEvaluationPlanDocument({ ...template, documentTitle: "영어과목 선택 안내" }, subjectDraft).title)
+      .toBe("영어과 영어과목 선택 안내");
+  });
+
+  it("uses the teacher context subject for the document title", () => {
+    const template: EvaluationTemplate = {
+      documentTitle: "교수학습 및 평가 계획",
+      sections: [],
+    };
+
+    expect(buildRawEvaluationPlanDocument(template, { ...draft, subjectLabel: "수학" }, {
+      teacherContext: { ...DEMO_TEACHER_EVALUATION_CONTEXT, subjectLabel: "영어" },
+      calendarEvents: [],
+    }).title).toBe("영어과 교수학습 및 평가 계획");
   });
 
   it("does not split a rowspan across repeated header and body row groups", () => {

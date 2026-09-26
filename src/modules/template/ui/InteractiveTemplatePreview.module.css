@@ -3,6 +3,12 @@
   width: 100%;
 }
 
+.inlineInspector {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 8mm;
+}
+
 .selectionLayer {
   position: absolute;
   inset: 0;
@@ -40,6 +46,10 @@
 }
 
 @media print {
+  .inlineInspector {
+    display: none;
+  }
+
   .selectionLayer {
     display: none;
   }

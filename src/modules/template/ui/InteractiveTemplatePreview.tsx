@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
 import type { RawEvaluationPlanDocumentView } from "@/modules/document-export";
 import { RawEvaluationPlanDocument } from "@/modules/document-export";
@@ -10,6 +11,7 @@ type InteractiveTemplatePreviewProps = {
   view: RawEvaluationPlanDocumentView;
   selectedSectionId: string | null;
   onSelectSection: (sectionId: string) => void;
+  sectionInspector?: ReactNode;
 };
 
 type SectionRegion = {
@@ -24,6 +26,7 @@ export function InteractiveTemplatePreview({
   view,
   selectedSectionId,
   onSelectSection,
+  sectionInspector,
 }: InteractiveTemplatePreviewProps) {
   const previewRef = useRef<HTMLDivElement>(null);
   const [regions, setRegions] = useState<SectionRegion[]>([]);
@@ -70,7 +73,14 @@ export function InteractiveTemplatePreview({
 
   return (
     <div className={styles.preview} ref={previewRef}>
-      <RawEvaluationPlanDocument view={view} />
+      <RawEvaluationPlanDocument
+        view={view}
+        afterSection={sectionInspector && selectedSectionId
+          ? (section) => section.id === selectedSectionId
+            ? <div className={styles.inlineInspector}>{sectionInspector}</div>
+            : null
+          : undefined}
+      />
       <div className={styles.selectionLayer} role="group" aria-label="문서 항목 선택">
         {regions.map((region) => {
           const selected = selectedSectionId === region.id;

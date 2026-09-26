@@ -11,7 +11,7 @@ export function createDefaultEvaluationTemplate(): EvaluationTemplate {
   }
 
   return {
-    documentTitle: "교수학습 및 평가 운영 계획",
+    documentTitle: "교수학습 및 평가 계획",
     sections: normalizeEvaluationTemplateSections([
       {
         id: "teaching-learning",

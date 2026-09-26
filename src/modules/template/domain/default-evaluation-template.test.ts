@@ -7,7 +7,7 @@ describe("createDefaultEvaluationTemplate", () => {
   it("creates a complete valid standard form without unconfigured sections", () => {
     const template = createDefaultEvaluationTemplate();
 
-    expect(template.documentTitle).toBe("교수학습 및 평가 운영 계획");
+    expect(template.documentTitle).toBe("교수학습 및 평가 계획");
     expect(template.sections).toHaveLength(16);
     expect(template.sections.every((section) => section.config !== undefined)).toBe(true);
     expect(getEvaluationTemplateIssues(template)).toEqual([]);

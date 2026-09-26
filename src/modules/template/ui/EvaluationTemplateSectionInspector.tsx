@@ -105,7 +105,6 @@ export function EvaluationTemplateSectionInspector({
           <summary>{hasTable ? "표 세부 설정" : section.config ? "세부 양식 설정" : "입력 양식 설정"}</summary>
           <EvaluationTemplateSectionFormatEditor
             config={section.config}
-            compact
             disabled={disabled}
             onChange={updateConfig}
           />

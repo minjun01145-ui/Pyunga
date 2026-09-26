@@ -144,12 +144,28 @@ export function buildRawEvaluationPlanDocument(
     });
 
   return {
-    title: template.documentTitle?.trim() || "평가계획",
+    title: buildDocumentTitle(
+      template.documentTitle,
+      options?.teacherContext.subjectLabel ?? draft.subjectLabel,
+    ),
     presentation: resolveEvaluationTemplatePresentation(template.presentation),
     metadataLine: buildMetadataLine(draft),
     firstPageOrientation: sections[0]?.orientation ?? "portrait",
     sections,
   };
+}
+
+function buildDocumentTitle(documentTitle: string | undefined, subjectLabel: string): string {
+  const title = documentTitle?.trim() || "평가계획";
+  const subject = subjectLabel.trim().replace(/과\s*$/u, "").trim();
+  if (!subject) return title;
+
+  const subjectPrefix = `${subject}과`;
+  const titleAlreadyHasSubject = title === subjectPrefix || title.startsWith(`${subjectPrefix} `);
+  const titleWithoutSubject = titleAlreadyHasSubject
+    ? title.slice(subjectPrefix.length).trimStart()
+    : title;
+  return titleWithoutSubject ? `${subjectPrefix} ${titleWithoutSubject}` : subjectPrefix;
 }
 
 function structuralHeadingOrientation(
