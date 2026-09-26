@@ -6,6 +6,7 @@ import { EVALUATION_PLAN_STATUSES, type EvaluationPlanStatus } from "../domain/e
 import { evaluationPlanDraftSchema, getEvaluationPlanDraftTemplateIssues, type EvaluationPlanDraft } from "./evaluation-plan-draft";
 import type { TeacherEvaluationContext } from "./teacher-evaluation-context";
 import { validateAssessmentWeights } from "../domain/validation";
+import { normalizeSubjectName, type SchoolSubject } from "@/modules/school";
 
 export const EVALUATION_PLAN_STATUS_LABELS: Record<EvaluationPlanStatus, string> = {
   draft: "작성 중", submitted: "제출됨", rejected: "반려됨", approved: "승인됨",
@@ -15,6 +16,7 @@ export const evaluationPlanWriteSchema = z.object({
   draft: evaluationPlanDraftSchema,
   expectedRevision: z.number().int().min(0),
   expectedTemplateRevision: z.number().int().min(0),
+  existingPlanId: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   action: z.enum(["save", "submit"]),
 }).strict();
 
@@ -28,7 +30,7 @@ export const evaluationPlanSummarySchema = z.object({
   id: z.string().min(1),
   teacherUserId: z.string().min(1),
   teacherLabel: z.string(),
-  context: z.object({ academicYear: z.number().int(), semester: z.union([z.literal(1), z.literal(2)]), grade: z.union([z.literal(1), z.literal(2), z.literal(3)]), subjectLabel: z.string() }),
+  context: z.object({ academicYear: z.number().int(), semester: z.union([z.literal(1), z.literal(2)]), grade: z.union([z.literal(1), z.literal(2), z.literal(3)]), subjectId: z.string().optional(), subjectLabel: z.string() }),
   status: z.enum(EVALUATION_PLAN_STATUSES),
   revision: z.number().int().min(1),
   templateSignature: z.string(),
@@ -37,6 +39,20 @@ export const evaluationPlanSummarySchema = z.object({
 });
 
 export type EvaluationPlanSummary = z.infer<typeof evaluationPlanSummarySchema>;
+
+export function filterPlansForActiveSubjects<T extends Pick<EvaluationPlanSummary, "context">>(
+  plans: readonly T[],
+  subjects: readonly SchoolSubject[],
+): T[] {
+  const activeSubjects = subjects.filter((subject) => subject.activeForPlans);
+  const activeIds = new Set(activeSubjects.map((subject) => subject.id));
+  const activeLabels = new Set(activeSubjects.flatMap((subject) => [subject.name, ...subject.legacyNames])
+    .map((name) => normalizeSubjectName(name).toLocaleLowerCase("ko-KR")));
+  return plans.filter((plan) => plan.context.subjectId
+    ? activeIds.has(plan.context.subjectId)
+    : activeLabels.has(normalizeSubjectName(plan.context.subjectLabel).toLocaleLowerCase("ko-KR")));
+}
+
 export type SavedEvaluationPlan = EvaluationPlanSummary & {
   draft: EvaluationPlanDraft;
   template: EvaluationTemplate;
@@ -52,6 +68,16 @@ export type EvaluationPlanWorkspaceData = {
   teachingGrades: number[];
   persistence: "browser" | "server";
   draftStorageScope?: string | null;
+  previewMode?: boolean;
+  readOnly?: boolean;
+  error?: string;
+};
+
+export type EvaluationPlanWorkspaceResponse = EvaluationPlanWorkspaceData | {
+  previewSelectionRequired: true;
+  previewSubjects: Array<{ id: string; name: string }>;
+  template: EvaluationTemplate | null;
+  templateRevision: number;
   error?: string;
 };
 

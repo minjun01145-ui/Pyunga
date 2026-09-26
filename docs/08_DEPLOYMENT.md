@@ -51,6 +51,17 @@ firebase apphosting:secrets:set ollamaApiKey
 
 환경변수 변경은 현재 실행 중인 버전에 즉시 반영되지 않으므로 반드시 새 rollout을 생성해야 합니다.
 
+## 임시 비밀번호 전달 키
+
+계정 생성·재발급 뒤 미변경 임시 비밀번호를 목록에서 다시 확인하려면 Secret Manager에 `PYUNGA_TEMPORARY_PASSWORD_ENCRYPTION_KEY`를 등록하고 App Hosting 런타임에 연결합니다. 32바이트 키를 Base64로 만들 때는 다음처럼 생성할 수 있습니다.
+
+```bash
+openssl rand -base64 32
+firebase apphosting:secrets:set PYUNGA_TEMPORARY_PASSWORD_ENCRYPTION_KEY
+```
+
+`apphosting.yaml`은 secret 이름이 같은 환경 변수에 연결합니다. 키 교체 시 이전 키로 암호화한 30일 이내 전달 정보가 복호화되지 않으므로, 보관 기간 종료 후 교체하거나 미변경 계정의 비밀번호를 먼저 재발급합니다.
+
 ## 주의
 
 기존 Firebase Hosting의 `firebase deploy` 흐름과 App Hosting 자동 rollout을 혼용하지 않는다.

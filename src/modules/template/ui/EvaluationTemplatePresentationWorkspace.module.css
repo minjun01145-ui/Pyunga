@@ -8,6 +8,15 @@
 .previewWorkspace {
   display: block;
 }
+.structureEditor {
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.structureEditor summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.structureEditor[open] summary { margin-bottom: 16px; }
 .previewColumn { min-width: 0; }
 .previewColumn { display: grid; gap: 10px; }
 .unsavedStatus { align-self: center; margin: 0; color: #8a3b10; font-size: 14px; }

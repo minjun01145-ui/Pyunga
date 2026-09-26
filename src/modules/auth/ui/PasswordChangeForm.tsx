@@ -43,6 +43,7 @@ export function PasswordChangeForm() {
         throw new Error(body?.error ?? "비밀번호를 변경하지 못했습니다.");
       }
 
+      window.dispatchEvent(new Event("auth-profile-updated"));
       router.replace(safeNextPath(searchParams.get("next")));
       router.refresh();
     } catch (submitError) {

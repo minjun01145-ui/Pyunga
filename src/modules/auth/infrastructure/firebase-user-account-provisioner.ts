@@ -9,8 +9,15 @@ import {
   type UserProfile,
 } from "@/modules/auth";
 import { getFirebaseAdminAuth, getFirebaseAdminDatabase } from "@/shared/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 import { createPasswordCredential, createTemporaryPassword } from "./password-credential";
+import {
+  decryptTemporaryPassword,
+  encryptTemporaryPassword,
+  isTemporaryPasswordDeliveryExpired,
+  parseEncryptedTemporaryPassword,
+} from "./temporary-password-delivery";
 
 const USER_ACCOUNT_COUNTER_DOCUMENT = "userAccounts";
 
@@ -21,10 +28,18 @@ export class TeacherAccountNotFoundError extends Error {
   }
 }
 
+export class TeacherAccountPasswordConflictError extends Error {
+  constructor() {
+    super("계정 정보가 변경되었습니다. 사용자 목록을 새로고침한 뒤 다시 확인해 주세요.");
+    this.name = "TeacherAccountPasswordConflictError";
+  }
+}
+
 export class FirebaseUserAccountProvisioner implements UserAccountProvisioner {
   async provision(command: ProvisionUserCommand): Promise<ProvisionedUser> {
     const temporaryPassword = createTemporaryPassword();
     const passwordCredential = await createPasswordCredential(temporaryPassword);
+    const temporaryPasswordDelivery = encryptTemporaryPassword(temporaryPassword, 1);
     const auth = getFirebaseAdminAuth();
     const database = getFirebaseAdminDatabase();
     const loginIdentifier = await database.runTransaction(async (transaction) => {
@@ -40,50 +55,73 @@ export class FirebaseUserAccountProvisioner implements UserAccountProvisioner {
       displayName: command.displayName,
     });
 
+    const userDocument = database.collection("users").doc(authUser.uid);
     try {
-      await database.collection("users").doc(authUser.uid).create({
+      await userDocument.create({
         schoolId: command.schoolId,
         displayName: command.displayName,
-        subjectLabel: command.subjectLabel,
+        ...(command.subjectLabel ? { subjectLabel: command.subjectLabel } : {}),
+        ...(command.subjectId ? { subjectId: command.subjectId } : {}),
         teachingGrades: command.teachingGrades,
         role: command.role,
         active: true,
         passwordCredential,
+        temporaryPasswordDelivery,
         mustChangePassword: true,
         failedLoginAttempts: 0,
         loginLockedUntil: 0,
       });
 
-      return {
-        userId: authUser.uid,
-        loginIdentifier,
-        temporaryPassword,
-      };
     } catch (error) {
       await auth.deleteUser(authUser.uid).catch(() => undefined);
       throw error;
     }
+
+    const createdProfile = await userDocument.get();
+    const currentProfile = parseUserProfile(authUser.uid, createdProfile.data());
+    const currentDelivery = parseEncryptedTemporaryPassword(createdProfile.data()?.temporaryPasswordDelivery);
+    if (!currentProfile?.active || !currentProfile.mustChangePassword || !currentDelivery
+      || decryptTemporaryPassword(currentDelivery) !== temporaryPassword) {
+      throw new TeacherAccountPasswordConflictError();
+    }
+    return { userId: authUser.uid, loginIdentifier, temporaryPassword };
   }
 
   async resetPassword(command: ResetUserPasswordCommand): Promise<ResetUserPasswordResult> {
     const database = getFirebaseAdminDatabase();
     const userDocument = database.collection("users").doc(command.userId);
-    const snapshot = await userDocument.get();
-    const profile = parseUserProfile(command.userId, snapshot.data());
-
-    if (!profile || profile.schoolId !== command.schoolId || profile.role !== "teacher") {
-      throw new TeacherAccountNotFoundError();
-    }
-
     const temporaryPassword = createTemporaryPassword();
     const passwordCredential = await createPasswordCredential(temporaryPassword);
-    await getFirebaseAdminAuth().revokeRefreshTokens(command.userId);
-    await userDocument.update({
-      passwordCredential,
-      mustChangePassword: true,
-      failedLoginAttempts: 0,
-      loginLockedUntil: 0,
+    let issuedRevision = 0;
+    await database.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(userDocument);
+      const data = snapshot.data();
+      const profile = parseUserProfile(command.userId, data);
+      if (!profile || !profile.active || profile.schoolId !== command.schoolId || profile.role !== "teacher") {
+        throw new TeacherAccountNotFoundError();
+      }
+      const currentDelivery = parseEncryptedTemporaryPassword(data?.temporaryPasswordDelivery);
+      const revision = currentDelivery ? currentDelivery.revision + 1 : 1;
+      issuedRevision = revision;
+      transaction.update(userDocument, {
+        passwordCredential,
+        temporaryPasswordDelivery: encryptTemporaryPassword(temporaryPassword, revision),
+        mustChangePassword: true,
+        failedLoginAttempts: 0,
+        loginLockedUntil: 0,
+      });
     });
+    await getFirebaseAdminAuth().revokeRefreshTokens(command.userId);
+
+    const currentSnapshot = await userDocument.get();
+    const currentData = currentSnapshot.data();
+    const currentProfile = parseUserProfile(command.userId, currentData);
+    const currentDelivery = parseEncryptedTemporaryPassword(currentData?.temporaryPasswordDelivery);
+    if (!currentProfile?.active || !currentProfile.mustChangePassword || !currentDelivery
+      || currentDelivery.revision !== issuedRevision
+      || decryptTemporaryPassword(currentDelivery) !== temporaryPassword) {
+      throw new TeacherAccountPasswordConflictError();
+    }
 
     return { temporaryPassword };
   }
@@ -95,59 +133,120 @@ export async function listSchoolTeacherAccounts(schoolId: string): Promise<Teach
     .where("schoolId", "==", schoolId)
     .get();
 
-  return snapshot.docs
-    .map((document) => parseUserProfile(document.id, document.data()))
-    .filter((profile): profile is UserProfile => profile?.role === "teacher")
-    .map((profile) => ({
+  const users: TeacherAccountSummary[] = [];
+  for (const document of snapshot.docs) {
+    let data = document.data();
+    let profile = parseUserProfile(document.id, data);
+    if (profile?.role !== "teacher") continue;
+    let passwordDelivery = summarizePasswordDelivery(profile.mustChangePassword, profile.active, data.temporaryPasswordDelivery);
+    if (passwordDelivery.temporaryPasswordState === "available") {
+      const currentSnapshot = await document.ref.get();
+      data = currentSnapshot.data() ?? {};
+      profile = parseUserProfile(document.id, data);
+      if (profile?.role !== "teacher" || profile.schoolId !== schoolId) continue;
+      passwordDelivery = summarizePasswordDelivery(profile.mustChangePassword, profile.active, data.temporaryPasswordDelivery);
+    }
+    users.push({
       id: profile.id,
       loginIdentifier: profile.id,
       displayName: profile.displayName,
       subjectLabel: profile.subjectLabel ?? "",
+      subjectId: profile.subjectId,
       teachingGrades: profile.teachingGrades,
       active: profile.active,
       mustChangePassword: profile.mustChangePassword,
-    }))
+      ...passwordDelivery,
+    });
+  }
+
+  return users
     .sort((left, right) => left.loginIdentifier.localeCompare(right.loginIdentifier));
+}
+
+export async function getSchoolTeacherSubjectId(schoolId: string, userId: string): Promise<string | undefined> {
+  const snapshot = await getFirebaseAdminDatabase().collection("users").doc(userId).get();
+  const profile = parseUserProfile(userId, snapshot.data());
+  if (!profile || profile.schoolId !== schoolId || profile.role !== "teacher") {
+    throw new TeacherAccountNotFoundError();
+  }
+  return profile.subjectId;
 }
 
 export async function updateSchoolTeacherAccount(params: {
   schoolId: string;
   userId: string;
   displayName: string;
-  subjectLabel: string;
+  subjectLabel?: string;
+  subjectId?: string;
   teachingGrades: UserProfile["teachingGrades"];
   active: boolean;
 }): Promise<TeacherAccountSummary> {
-  const userDocument = getFirebaseAdminDatabase().collection("users").doc(params.userId);
-  const snapshot = await userDocument.get();
-  const profile = parseUserProfile(params.userId, snapshot.data());
+  const database = getFirebaseAdminDatabase();
+  const userDocument = database.collection("users").doc(params.userId);
+  const result = await database.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(userDocument);
+    const data = snapshot.data();
+    const profile = parseUserProfile(params.userId, data);
+    if (!profile || profile.schoolId !== params.schoolId || profile.role !== "teacher") {
+      throw new TeacherAccountNotFoundError();
+    }
 
-  if (!profile || profile.schoolId !== params.schoolId || profile.role !== "teacher") {
-    throw new TeacherAccountNotFoundError();
-  }
-
-  if (profile.active !== params.active) {
-    const auth = getFirebaseAdminAuth();
-    await auth.updateUser(params.userId, { disabled: !params.active });
-    if (!params.active) await auth.revokeRefreshTokens(params.userId);
-  }
-
-  await userDocument.update({
-    displayName: params.displayName,
-    subjectLabel: params.subjectLabel,
-    teachingGrades: params.teachingGrades,
-    active: params.active,
+    const patch = {
+      displayName: params.displayName,
+      ...(params.subjectLabel !== undefined ? { subjectLabel: params.subjectLabel } : {}),
+      ...(params.subjectId ? { subjectId: params.subjectId } : {}),
+      teachingGrades: params.teachingGrades,
+      active: params.active,
+      ...(!params.active ? { temporaryPasswordDelivery: FieldValue.delete() } : {}),
+    };
+    transaction.update(userDocument, patch);
+    const nextProfile = parseUserProfile(params.userId, { ...data, ...patch, active: params.active });
+    if (!nextProfile) throw new TeacherAccountNotFoundError();
+    return { wasActive: profile.active };
   });
 
+  if (result.wasActive !== params.active) {
+    await getFirebaseAdminAuth().updateUser(params.userId, { disabled: !params.active });
+    if (!params.active) await getFirebaseAdminAuth().revokeRefreshTokens(params.userId);
+  }
+
+  const currentSnapshot = await userDocument.get();
+  const currentData = currentSnapshot.data();
+  const currentProfile = parseUserProfile(params.userId, currentData);
+  if (!currentProfile || currentProfile.schoolId !== params.schoolId || currentProfile.role !== "teacher") {
+    throw new TeacherAccountNotFoundError();
+  }
   return {
-    id: profile.id,
-    loginIdentifier: profile.id,
-    displayName: params.displayName,
-    subjectLabel: params.subjectLabel,
-    teachingGrades: params.teachingGrades,
-    active: params.active,
-    mustChangePassword: profile.mustChangePassword,
+    id: currentProfile.id,
+    loginIdentifier: currentProfile.id,
+    displayName: currentProfile.displayName,
+    subjectLabel: currentProfile.subjectLabel ?? "",
+    subjectId: currentProfile.subjectId,
+    teachingGrades: currentProfile.teachingGrades,
+    active: currentProfile.active,
+    mustChangePassword: currentProfile.mustChangePassword,
+    ...summarizePasswordDelivery(
+      currentProfile.mustChangePassword,
+      currentProfile.active,
+      currentData?.temporaryPasswordDelivery,
+    ),
   };
+}
+
+function summarizePasswordDelivery(
+  mustChangePassword: boolean,
+  active: boolean,
+  rawDelivery: unknown,
+): Pick<TeacherAccountSummary, "temporaryPasswordState" | "temporaryPassword"> {
+  if (!mustChangePassword) return { temporaryPasswordState: "changed" };
+  if (!active) return { temporaryPasswordState: "unavailable" };
+  const delivery = parseEncryptedTemporaryPassword(rawDelivery);
+  if (!delivery) return { temporaryPasswordState: "unavailable" };
+  if (isTemporaryPasswordDeliveryExpired(delivery)) return { temporaryPasswordState: "expired" };
+  const temporaryPassword = decryptTemporaryPassword(delivery);
+  return temporaryPassword
+    ? { temporaryPasswordState: "available", temporaryPassword }
+    : { temporaryPasswordState: "unavailable" };
 }
 
 function readLastAccountNumber(value: FirebaseFirestore.DocumentData | undefined): number {

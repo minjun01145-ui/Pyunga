@@ -4,7 +4,8 @@ import type { TeachingGrade } from "../domain/user-profile";
 export type ProvisionUserCommand = {
   schoolId: string;
   displayName: string;
-  subjectLabel: string;
+  subjectLabel?: string;
+  subjectId?: string;
   teachingGrades: TeachingGrade[];
   role: UserRole;
 };
@@ -29,9 +30,12 @@ export type TeacherAccountSummary = {
   loginIdentifier: string;
   displayName: string;
   subjectLabel: string;
+  subjectId?: string;
   teachingGrades: TeachingGrade[];
   active: boolean;
   mustChangePassword: boolean;
+  temporaryPasswordState: "available" | "changed" | "unavailable" | "expired";
+  temporaryPassword?: string;
 };
 
 export interface UserAccountProvisioner {

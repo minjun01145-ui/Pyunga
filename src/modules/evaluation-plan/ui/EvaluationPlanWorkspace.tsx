@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -15,6 +15,7 @@ import {
   EVALUATION_PLAN_STATUS_LABELS,
   getEvaluationPlanSubmissionIssues,
   type EvaluationPlanWorkspaceData,
+  type EvaluationPlanWorkspaceResponse,
   type EvaluationPlanSummary,
   type SavedEvaluationPlan,
   type EvaluationPlanDraft,
@@ -49,6 +50,8 @@ const AUTOMATIC_RETRY_COOLDOWN_MS = 60 * 1000;
 
 export function EvaluationPlanWorkspace() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const workspaceSearch = searchParams.toString();
   const [template, setTemplate] = useState<EvaluationTemplate | null>(null);
   const [teacherContext, setTeacherContext] = useState<TeacherEvaluationContext | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<AcademicCalendarEvent[]>([]);
@@ -65,6 +68,11 @@ export function EvaluationPlanWorkspace() {
   const [templateRevision, setTemplateRevision] = useState(0);
   const [persistence, setPersistence] = useState<"browser" | "server">("browser");
   const [teachingGrades, setTeachingGrades] = useState<number[]>([]);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [readOnly, setReadOnly] = useState(false);
+  const [previewSubjects, setPreviewSubjects] = useState<Array<{ id: string; name: string }> | null>(null);
+  const [previewSubjectId, setPreviewSubjectId] = useState("");
+  const [previewGrade, setPreviewGrade] = useState<"1" | "2" | "3">("1");
   const [browserStorageFailed, setBrowserStorageFailed] = useState(false);
   const [serverSaveFailed, setServerSaveFailed] = useState(false);
   const [serverSaveError, setServerSaveError] = useState<string | null>(null);
@@ -97,8 +105,10 @@ export function EvaluationPlanWorkspace() {
       let usedWorkspaceCache = false;
       let cachedStorageSignature: string | null = null;
       let cachedEditVersion = 0;
+      const requestedPreview = new URLSearchParams(workspaceSearch).get("preview") === "1";
       try {
-        const responseRequest = authenticatedFetch(`/api/teacher/evaluation-plan${window.location.search}`)
+        const search = workspaceSearch ? `?${workspaceSearch}` : "";
+        const responseRequest = authenticatedFetch(`/api/teacher/evaluation-plan${search}`)
           .then((response) => ({ response }), (requestError: unknown) => ({ requestError }));
         try {
           if (isAuthenticationDisabled()) {
@@ -109,7 +119,7 @@ export function EvaluationPlanWorkspace() {
             cacheOwnerId = auth.currentUser?.uid ?? null;
           }
           workspaceCacheOwnerRef.current = cacheOwnerId;
-          if (cacheOwnerId) {
+          if (cacheOwnerId && !requestedPreview) {
             const cached = loadEvaluationPlanWorkspaceCache(window.localStorage, cacheOwnerId);
             if (cached) {
               usedWorkspaceCache = true;
@@ -204,11 +214,26 @@ export function EvaluationPlanWorkspace() {
         const requestResult = await responseRequest;
         if ("requestError" in requestResult) throw requestResult.requestError;
         const response = requestResult.response;
-        const fetchedBody = (await response.json()) as EvaluationPlanWorkspaceData;
+        const fetchedBody = (await response.json()) as EvaluationPlanWorkspaceResponse;
+        if (cancelled) return;
+        if ("previewSelectionRequired" in fetchedBody && fetchedBody.previewSelectionRequired) {
+          setPreviewSubjects(fetchedBody.previewSubjects);
+          setPreviewSubjectId((current) => fetchedBody.previewSubjects.some((subject) => subject.id === current)
+            ? current
+            : fetchedBody.previewSubjects[0]?.id ?? "");
+          setTemplate(fetchedBody.template);
+          setTemplateRevision(fetchedBody.templateRevision);
+          setPreviewMode(true);
+          setIsCheckingServer(false);
+          setError(null);
+          return;
+        }
+        const workspaceBody = fetchedBody as EvaluationPlanWorkspaceData;
+        if (!workspaceBody.teacherContext) throw new Error(workspaceBody.error ?? "교사 작성 정보를 확인하지 못했습니다.");
         const currentSave = savedPlanRef.current;
-        const body = currentSave && currentSave.revision > (fetchedBody.savedPlan?.revision ?? 0)
-          ? { ...fetchedBody, savedPlan: currentSave }
-          : fetchedBody;
+        const body = currentSave && currentSave.revision > (workspaceBody.savedPlan?.revision ?? 0)
+          ? { ...workspaceBody, savedPlan: currentSave }
+          : workspaceBody;
         if (!response.ok) throw new Error(body.error ?? "평가계획 작성 자료를 불러오지 못했습니다.");
         if (cancelled) return;
         setCachedPlanSummary(null);
@@ -223,6 +248,9 @@ export function EvaluationPlanWorkspace() {
         setTemplateRevision(body.templateRevision);
         setPersistence(body.persistence);
         setTeachingGrades(body.teachingGrades);
+        setPreviewMode(body.previewMode === true);
+        setReadOnly(body.readOnly === true);
+        setPreviewSubjects(null);
         setSavedPlan(body.savedPlan);
         savedPlanRef.current = body.savedPlan;
         expectedRevisionRef.current = body.savedPlan?.revision ?? 0;
@@ -364,11 +392,17 @@ export function EvaluationPlanWorkspace() {
       }
     }
 
-    void loadWorkspace();
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      setIsLoading(true);
+      setPreviewSubjects(null);
+      setError(null);
+      return loadWorkspace();
+    });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [workspaceSearch]);
 
   useEffect(() => {
     if (persistence !== "server") return;
@@ -389,6 +423,37 @@ export function EvaluationPlanWorkspace() {
 
   if (isLoading) {
     return <p className="muted">평가계획 양식과 입력 내용을 불러오는 중입니다.</p>;
+  }
+
+  if (previewSubjects) {
+    return (
+      <section className="panel">
+        <h1 className="page-title">과목 교사용 화면 미리보기</h1>
+        <p className="notice">학교 양식을 확인할 과목과 학년을 고르세요. 공식 초안이나 제출본은 열리지 않으며, 이 화면에서 저장·제출할 수 없습니다.</p>
+        {previewSubjects.length === 0 ? (
+          <p className="notice">평가계획 작성 대상으로 설정된 과목 분류가 없습니다. <a href="/admin/evaluation/users">사용자 관리</a>에서 과목 분류를 추가해 주세요.</p>
+        ) : (
+          <div className="form-grid two-columns">
+            <label className="field">
+              <span>과목</span>
+              <select value={previewSubjectId} onChange={(event) => setPreviewSubjectId(event.target.value)}>
+                {previewSubjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              <span>학년</span>
+              <select value={previewGrade} onChange={(event) => setPreviewGrade(event.target.value as "1" | "2" | "3")}>
+                <option value="1">1학년</option><option value="2">2학년</option><option value="3">3학년</option>
+              </select>
+            </label>
+            <button className="secondary-button align-start" type="button" disabled={!previewSubjectId} onClick={() => {
+              const query = new URLSearchParams({ preview: "1", subjectId: previewSubjectId, grade: previewGrade });
+              router.push(`/teacher/evaluation-plan?${query.toString()}`);
+            }}>양식 미리보기</button>
+          </div>
+        )}
+      </section>
+    );
   }
 
   if (error && !template) {
@@ -535,7 +600,7 @@ export function EvaluationPlanWorkspace() {
         setServerSaveError(null);
         const response = await authenticatedFetch("/api/teacher/evaluation-plan", {
           method: "PUT", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ draft: draftToSave, expectedRevision: expectedRevisionRef.current, expectedTemplateRevision: templateRevision, action: submit ? "submit" : "save" }),
+          body: JSON.stringify({ draft: draftToSave, expectedRevision: expectedRevisionRef.current, expectedTemplateRevision: templateRevision, existingPlanId: savedPlan?.id ?? cachedPlanSummary?.id, action: submit ? "submit" : "save" }),
         });
         const body = await response.json() as { savedPlan?: SavedEvaluationPlan; error?: string };
         if (!response.ok) throw new Error(body.error ?? "평가계획을 저장하지 못했습니다.");
@@ -647,7 +712,7 @@ export function EvaluationPlanWorkspace() {
   }
 
   const status = savedPlan?.status ?? cachedPlanSummary?.status ?? "draft";
-  const locked = status === "submitted" || status === "approved";
+  const locked = previewMode || readOnly || status === "submitted" || status === "approved";
   const sectionsById = new Map(template.sections.map((section) => [section.id, section]));
 
   return (
@@ -658,7 +723,13 @@ export function EvaluationPlanWorkspace() {
           평가계에서 확정한 양식의 구조는 그대로 유지됩니다. 교과에서는 지정된 입력칸의 내용만 작성합니다.
         </p>
         {storageNotice ? <p className="notice">{storageNotice}</p> : null}
-        <p className="small-copy">{persistence === "browser" ? "체험 모드: 입력 내용은 이 브라우저에 저장됩니다. 제출은 로그인 후 이용할 수 있습니다." : `상태: ${EVALUATION_PLAN_STATUS_LABELS[status]}`}</p>
+        <p className="small-copy">{previewMode
+          ? "미리보기 · 입력 내용은 저장되거나 제출되지 않습니다."
+          : readOnly
+            ? "작성 대상에서 제외된 과목의 기존 평가계획을 열람하고 있습니다."
+          : persistence === "browser"
+            ? "체험 모드: 입력 내용은 이 브라우저에 저장됩니다. 제출은 로그인 후 이용할 수 있습니다."
+            : `상태: ${EVALUATION_PLAN_STATUS_LABELS[status]}`}</p>
         <p role="status" className="small-copy">{getDraftSaveStatus({ persistence, isSaving, isDirty, isCheckingServer, serverSaveFailed, serverCheckFailed, browserStorageFailed, lastServerSavedAt })}</p>
         {serverSaveError ? <p className="small-copy">{serverSaveError}</p> : null}
         {savedPlan?.reviewComment || cachedPlanSummary?.reviewComment ? <p className="notice">검토 의견: {savedPlan?.reviewComment ?? cachedPlanSummary?.reviewComment}</p> : null}
@@ -666,7 +737,7 @@ export function EvaluationPlanWorkspace() {
         <p className={styles.teacherContextLine}>
           <strong>{teacherContext.academicYear}학년도 {teacherContext.semester}학기</strong>
           <span>{teacherContext.grade}학년</span>
-          <span>{teacherContext.subjectLabel}</span>
+          <span>{locked && savedPlan ? savedPlan.context.subjectLabel : teacherContext.subjectLabel}</span>
         </p>
       </section>
 
@@ -690,7 +761,7 @@ export function EvaluationPlanWorkspace() {
 
       <section className={`panel ${styles.savePanel}`}>
         <div className={styles.saveButtons}>
-          {locked ? <Link className="secondary-button" href={`/teacher/evaluation-plan/preview?grade=${teacherContext.grade}`}>제출본 보기·인쇄</Link> : <>
+          {previewMode ? <p className="notice">미리보기에서는 저장, 제출, 기존 교사 자료 조회를 할 수 없습니다.</p> : readOnly ? <><p className="notice">이 과목 분류는 작성 대상에서 제외되어 기존 자료를 열람만 할 수 있습니다.</p><Link className="secondary-button" href={`/teacher/evaluation-plan/preview?grade=${teacherContext.grade}`}>기존 계획 보기·인쇄</Link></> : locked ? <Link className="secondary-button" href={`/teacher/evaluation-plan/preview?grade=${teacherContext.grade}`}>제출본 보기·인쇄</Link> : <>
           <button
             className="secondary-button"
             type="button"

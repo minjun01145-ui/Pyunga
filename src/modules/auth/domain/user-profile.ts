@@ -8,6 +8,7 @@ export type UserProfile = {
   id: string;
   schoolId: string;
   displayName: string;
+  subjectId?: string;
   subjectLabel?: string;
   teachingGrades: TeachingGrade[];
   role: UserRole;
@@ -28,6 +29,7 @@ export function parseUserProfile(id: string, value: unknown): UserProfile | null
 
   const schoolId = value.schoolId;
   const displayName = value.displayName;
+  const subjectId = value.subjectId;
   const subjectLabel = value.subjectLabel;
   const role = parseUserRole(value.role);
   const active = value.active;
@@ -41,6 +43,8 @@ export function parseUserProfile(id: string, value: unknown): UserProfile | null
     displayName.length > 80 ||
     (subjectLabel !== undefined &&
       (typeof subjectLabel !== "string" || subjectLabel.length > 80)) ||
+    (subjectId !== undefined &&
+      (typeof subjectId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(subjectId))) ||
     !role ||
     typeof active !== "boolean"
   ) {
@@ -51,6 +55,7 @@ export function parseUserProfile(id: string, value: unknown): UserProfile | null
     id,
     schoolId,
     displayName,
+    subjectId,
     subjectLabel,
     teachingGrades: parseTeachingGrades(value.teachingGrades),
     role,

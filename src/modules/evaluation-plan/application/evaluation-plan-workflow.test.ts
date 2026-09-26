@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { UserProfile } from "@/modules/auth";
+import type { SchoolSubject } from "@/modules/school";
 import { createDefaultEvaluationTemplate, type EvaluationTemplate } from "@/modules/template";
 import { createEmptyEvaluationPlanDraft } from "./evaluation-plan-draft";
-import { evaluationPlanReviewSchema, evaluationPlanWriteSchema, getEvaluationPlanSubmissionIssues, transitionEvaluationPlan } from "./evaluation-plan-workflow";
+import { evaluationPlanReviewSchema, evaluationPlanWriteSchema, filterPlansForActiveSubjects, getEvaluationPlanSubmissionIssues, transitionEvaluationPlan } from "./evaluation-plan-workflow";
 import { resolveTeacherEvaluationContext } from "./teacher-evaluation-context";
 
 const teacher: UserProfile = { id: "teacher-1", schoolId: "school-1", displayName: "김OO", subjectLabel: "과학", teachingGrades: [1, 3], role: "teacher", active: true, mustChangePassword: false };
@@ -10,6 +11,20 @@ const context = { academicYear: 2026, semester: 2, grade: 1, subjectLabel: "과�
 const admin = { ...teacher, id: "admin-1", role: "evaluation_admin" } as const;
 
 describe("evaluation plan workflow", () => {
+  it("excludes plans for inactive subjects while retaining legacy labels after a rename", () => {
+    const subjects: SchoolSubject[] = [
+      { id: "active-subject", name: "통합과학", legacyNames: ["과학"], activeForPlans: true, revision: 2, updatedAt: 1 },
+      { id: "inactive-subject", name: "미술", legacyNames: [], activeForPlans: false, revision: 2, updatedAt: 1 },
+    ];
+    const plans = [
+      { context: { ...context, subjectId: "active-subject", subjectLabel: "통합과학" } },
+      { context: { ...context, subjectLabel: "과학" } },
+      { context: { ...context, subjectId: "inactive-subject", subjectLabel: "미술" } },
+    ];
+
+    expect(filterPlansForActiveSubjects(plans, subjects)).toEqual(plans.slice(0, 2));
+  });
+
   it("resolves assigned grades using the configured school academic period", () => {
     expect(resolveTeacherEvaluationContext({ demoMode: false, profile: teacher, academicPeriod: context, grade: 3 })).toMatchObject({ ...context, grade: 3 });
     expect(() => resolveTeacherEvaluationContext({ demoMode: false, profile: teacher, academicPeriod: context, grade: 2 })).toThrow();

@@ -1,5 +1,6 @@
 import { parseUserProfile } from "@/modules/auth";
 import { getFirebaseAdminAuth, getFirebaseAdminDatabase } from "@/shared/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 import {
   createPasswordCredential,
@@ -54,7 +55,8 @@ export async function changeUserPassword(params: {
   currentPassword: string;
   newPassword: string;
 }): Promise<void> {
-  const userDocument = getFirebaseAdminDatabase().collection("users").doc(params.userId);
+  const database = getFirebaseAdminDatabase();
+  const userDocument = database.collection("users").doc(params.userId);
   const snapshot = await userDocument.get();
   const profile = parseUserProfile(params.userId, snapshot.data());
   const credential = parseStoredPasswordCredential(snapshot.data()?.passwordCredential);
@@ -67,11 +69,25 @@ export async function changeUserPassword(params: {
     throw new PasswordChangeError("현재 비밀번호가 올바르지 않습니다.");
   }
 
-  await userDocument.update({
-    passwordCredential: await createPasswordCredential(params.newPassword),
-    mustChangePassword: false,
-    failedLoginAttempts: 0,
-    loginLockedUntil: 0,
+  const nextCredential = await createPasswordCredential(params.newPassword);
+  await database.runTransaction(async (transaction) => {
+    const currentSnapshot = await transaction.get(userDocument);
+    const currentData = currentSnapshot.data();
+    const currentProfile = parseUserProfile(params.userId, currentData);
+    const currentCredential = parseStoredPasswordCredential(currentData?.passwordCredential);
+    if (!currentProfile?.active || !currentCredential) {
+      throw new PasswordChangeError("사용자 계정 정보를 확인할 수 없습니다.");
+    }
+    if (currentCredential.hash !== credential.hash || currentCredential.salt !== credential.salt) {
+      throw new PasswordChangeError("계정 비밀번호가 변경되었습니다. 다시 로그인한 뒤 시도해 주세요.");
+    }
+    transaction.update(userDocument, {
+      passwordCredential: nextCredential,
+      temporaryPasswordDelivery: FieldValue.delete(),
+      mustChangePassword: false,
+      failedLoginAttempts: 0,
+      loginLockedUntil: 0,
+    });
   });
 }
 

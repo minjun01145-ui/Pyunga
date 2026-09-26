@@ -18,6 +18,8 @@ type EvaluationTemplateSectionInspectorProps = {
   sections: readonly EvaluationTemplateSection[];
   selectedSectionId: string | null;
   disabled: boolean;
+  error?: string;
+  onSave: () => void;
   onSectionChange: (sectionId: string, patch: EvaluationTemplateSectionPatch) => void;
   onMoveSection: (sectionId: string, direction: -1 | 1) => void;
 };
@@ -36,6 +38,8 @@ export function EvaluationTemplateSectionInspector({
   sections,
   selectedSectionId,
   disabled,
+  error,
+  onSave,
   onSectionChange,
   onMoveSection,
 }: EvaluationTemplateSectionInspectorProps) {
@@ -101,14 +105,18 @@ export function EvaluationTemplateSectionInspector({
           <p className="muted small-copy">{getEvaluationTemplateSectionFormatSummary(section.config)}</p>
         </div>
 
-        <details key={section.id} className={styles.formatDetails}>
-          <summary>{hasTable ? "표 세부 설정" : section.config ? "세부 양식 설정" : "입력 양식 설정"}</summary>
+        <div key={section.id} className={styles.formatDetails}>
+          <h3 className="subsection-title">
+            {hasTable ? "표 세부 설정" : section.config ? "세부 양식 설정" : "입력 양식 설정"}
+          </h3>
           <EvaluationTemplateSectionFormatEditor
             config={section.config}
             disabled={disabled}
             onChange={updateConfig}
           />
-        </details>
+        </div>
+
+        {error ? <p role="alert" className="validation-error-box">{error}</p> : null}
 
         <div className={styles.actions}>
           <button
@@ -129,12 +137,17 @@ export function EvaluationTemplateSectionInspector({
           </button>
         </div>
 
-        <Link
-          className={styles.existingEditorLink}
-          href={`/admin/evaluation/template/current/${encodeURIComponent(section.id)}`}
-        >
-          기존 세부 설정 열기
-        </Link>
+        <div className={styles.saveActions}>
+          <button className="secondary-button" type="button" disabled={disabled} onClick={onSave}>
+            양식 저장
+          </button>
+          <Link
+            className={styles.existingEditorLink}
+            href={`/admin/evaluation/template/current/${encodeURIComponent(section.id)}`}
+          >
+            항목 전체 화면에서 열기
+          </Link>
+        </div>
       </fieldset>
     </aside>
   );

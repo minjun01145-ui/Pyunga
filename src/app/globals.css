@@ -206,6 +206,10 @@ main {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.form-grid.two-columns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .field {
   display: grid;
   gap: 6px;
@@ -571,6 +575,77 @@ textarea {
   gap: 8px;
 }
 
+.teacher-account-menu {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.subject-management-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.subject-management-header .field {
+  min-width: min(100%, 260px);
+}
+
+.subject-management-header p {
+  margin: 4px 0 0;
+}
+
+.curriculum-review {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.curriculum-review > p {
+  margin: 0;
+}
+
+.curriculum-evidence {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+  gap: 8px 14px;
+  margin: 0;
+}
+
+.curriculum-evidence dt {
+  font-weight: 600;
+}
+
+.curriculum-evidence dd {
+  margin: 0;
+}
+
+.curriculum-candidate {
+  display: grid;
+  grid-template-columns: max-content minmax(180px, 1fr) max-content;
+  align-items: center;
+  gap: 8px;
+}
+
+.curriculum-candidate > label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.curriculum-candidate input[type="checkbox"] {
+  width: auto;
+}
+
 .calendar-date-inputs {
   display: grid;
   grid-template-columns: 1fr;
@@ -712,6 +787,28 @@ textarea {
 }
 
 @media (max-width: 800px) {
+  .form-grid.two-columns,
+  .form-grid.three-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .curriculum-evidence {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .curriculum-evidence dd {
+    margin: 0 0 8px;
+  }
+
+  .curriculum-candidate {
+    grid-template-columns: max-content minmax(0, 1fr);
+  }
+
+  .curriculum-candidate > span {
+    grid-column: 2;
+  }
+
   .calendar-import-form {
     grid-template-columns: 1fr;
   }

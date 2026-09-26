@@ -1,28 +1,28 @@
+"use client";
+
+import { signOut } from "firebase/auth";
 import Link from "next/link";
 
-import { AuthNavigation } from "@/modules/auth/ui/AuthNavigation";
+import type { UserProfile } from "@/modules/auth";
+import { getFirebaseClientAuth } from "@/shared/firebase/client";
 
-const navigationItems = [
-  { href: "/", label: "첫 화면" },
-  { href: "/teacher", label: "과목교사" },
-  { href: "/admin/evaluation", label: "평가계" },
-] as const;
-
-export function AppNavigation() {
+export function AppNavigation({ profile }: { profile: UserProfile }) {
+  const hasAssignment = Boolean(profile.subjectId || profile.subjectLabel) && profile.teachingGrades.length > 0;
   return (
-    <nav className="simple-nav app-navigation" aria-label="주요 메뉴">
-      <Link className="app-name" href="/">
-        평가계획 작성기
-      </Link>
+    <nav className="simple-nav app-navigation" aria-label="평가계 메뉴">
+      <Link className="app-name" href="/admin/evaluation">평가계</Link>
       <div className="app-navigation-links">
-        {navigationItems.map((item) => (
-          <Link key={item.href} href={item.href}>
-            {item.label}
-          </Link>
-        ))}
+        <Link href={hasAssignment ? "/teacher/evaluation-plan" : "/teacher/evaluation-plan?preview=1"}>
+          과목 교사용 화면 보기
+        </Link>
+        <Link href="/admin/evaluation/template/presentation">평가계용 설정</Link>
       </div>
       <div className="app-navigation-auth">
-        <AuthNavigation />
+        <span>{profile.displayName}</span>
+        <Link href="/account/password">비밀번호 변경</Link>
+        <button className="text-button auth-sign-out" type="button" onClick={() => void signOut(getFirebaseClientAuth())}>
+          로그아웃
+        </button>
       </div>
     </nav>
   );

@@ -138,13 +138,38 @@ export function getTableTemplateLeadingHeaderRowCount(document: TableTemplateDoc
 }
 
 export function getTableTemplateColumnWidths(document: TableTemplateDocument): Array<number | null> {
-  const widths: Array<number | null> = [];
-  for (const cell of document.content[0].content[0].content) {
-    for (let index = 0; index < cell.attrs.colspan; index += 1) {
-      widths.push(cell.attrs.colwidth?.[index] ?? null);
+  const rows = document.content[0].content;
+  const columnCount = rows[0].content.reduce((total, cell) => total + cell.attrs.colspan, 0);
+  const placements = getTableTemplateCellPlacements(document);
+  const candidates = Array.from({ length: columnCount }, () => [] as number[]);
+
+  rows.forEach((row, rowIndex) => {
+    for (const placement of placements[rowIndex] ?? []) {
+      const cell = row.content[placement.cellIndex];
+      for (let column = placement.startColumn; column < placement.endColumn; column += 1) {
+        const width = cell.attrs.colwidth?.[column - placement.startColumn];
+        if (typeof width === "number" && Number.isFinite(width) && width > 0) {
+          candidates[column].push(width);
+        }
+      }
     }
-  }
-  return widths;
+  });
+
+  const widths = candidates.map(medianWidth);
+  const knownWidths = widths.filter((width): width is number => width !== null);
+  if (knownWidths.length === 0) return widths;
+
+  const fallbackWidth = medianWidth(knownWidths) ?? knownWidths[0];
+  return widths.map((width) => width ?? fallbackWidth);
+}
+
+function medianWidth(widths: readonly number[]): number | null {
+  if (widths.length === 0) return null;
+  const sorted = [...widths].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle];
 }
 
 export function getTableTemplateCellPlacements(

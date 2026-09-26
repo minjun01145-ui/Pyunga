@@ -14,9 +14,17 @@ import {
 } from "../domain/evaluation-template";
 import { EVALUATION_DOCUMENT_STYLES, resolveEvaluationTemplatePresentation } from "../domain/evaluation-template-presentation";
 import { readSchoolLogo } from "../infrastructure/school-logo-image";
+import type { EvaluationTemplateImportResult } from "../application/evaluation-template-import";
+import type { EvaluationTemplateSource } from "../domain/evaluation-template";
+import { EvaluationTemplateImportPanel } from "./EvaluationTemplateImportPanel";
+import { EvaluationTemplateSectionEditor } from "./EvaluationTemplateSectionEditor";
 import { EvaluationTemplateSectionInspector } from "./EvaluationTemplateSectionInspector";
 import { InteractiveTemplatePreview } from "./InteractiveTemplatePreview";
 import styles from "./EvaluationTemplatePresentationWorkspace.module.css";
+
+type ImportApiResponse = Omit<EvaluationTemplateImportResult, "source"> & {
+  source: EvaluationTemplateSource;
+};
 
 export function EvaluationTemplatePresentationWorkspace() {
   const [template, setTemplate] = useState<EvaluationTemplate>(createDefaultEvaluationTemplate);
@@ -26,7 +34,16 @@ export function EvaluationTemplatePresentationWorkspace() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+  const [importWarnings, setImportWarnings] = useState<string[]>([]);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   useUnsavedChangesGuard(dirty, "저장하지 않은 학교 양식 설정이 있습니다. 이동하시겠습니까?");
+
+  useEffect(() => {
+    if (!busy) return;
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000)), 1_000);
+    return () => window.clearInterval(timer);
+  }, [busy]);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,6 +111,42 @@ export function EvaluationTemplatePresentationWorkspace() {
     } finally { setBusy(false); }
   }
 
+  async function importTemplate(file: File) {
+    setBusy(true);
+    setElapsedSeconds(0);
+    setError("");
+    setMessage("");
+    setImportWarnings([]);
+    const formData = new FormData();
+    formData.set("file", file);
+    try {
+      const response = await authenticatedFetch("/api/admin/evaluation/template/major-sections/import", {
+        method: "POST",
+        body: formData,
+      });
+      const body = await response.json() as ImportApiResponse | { error?: string };
+      if (!response.ok || !("sections" in body)) {
+        throw new Error("error" in body && body.error ? body.error : "평가계획 분석에 실패했습니다.");
+      }
+      update((current) => ({
+        ...current,
+        documentTitle: body.documentTitle,
+        sections: body.sections,
+        source: body.source,
+      }));
+      setImportWarnings(body.warnings);
+      setSelectedSectionId(null);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "평가계획 분석에 실패했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function applySectionEditorChange(nextTemplate: EvaluationTemplate) {
+    update(() => nextTemplate);
+  }
+
   const presentation = resolveEvaluationTemplatePresentation(template.presentation);
   const draft = createEmptyEvaluationPlanDraft();
   if (template.academicPeriod) {
@@ -138,6 +191,21 @@ export function EvaluationTemplatePresentationWorkspace() {
           return { ...current, presentation: { style: next.style, schoolName: next.schoolName } };
         })}>교표 삭제</button> : null}
       </fieldset>
+      {importWarnings.length > 0 ? (
+        <div className="notice">
+          <strong>PDF 분석 확인 사항</strong>
+          <ul>{importWarnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+        </div>
+      ) : null}
+      <EvaluationTemplateImportPanel
+        isLoading={busy}
+        elapsedSeconds={elapsedSeconds}
+        onImport={(file) => void importTemplate(file)}
+      />
+      <details className={styles.structureEditor}>
+        <summary>항목 추가·삭제와 제목 계층 관리</summary>
+        <EvaluationTemplateSectionEditor template={template} onChange={applySectionEditorChange} />
+      </details>
       <fieldset disabled={busy} className={styles.presets}>
         <legend>기본 양식 선택</legend>
         {EVALUATION_DOCUMENT_STYLES.map((style) => <label key={style.id} className={styles.preset}>
@@ -162,12 +230,18 @@ export function EvaluationTemplatePresentationWorkspace() {
         <InteractiveTemplatePreview
           view={view}
           selectedSectionId={activeSectionId}
-          onSelectSection={(sectionId) => setSelectedSectionId((current) => current === sectionId ? null : sectionId)}
+          onSelectSection={(sectionId) => {
+            setError("");
+            setMessage("");
+            setSelectedSectionId((current) => current === sectionId ? null : sectionId);
+          }}
           sectionInspector={
             <EvaluationTemplateSectionInspector
               sections={template.sections}
               selectedSectionId={activeSectionId}
               disabled={busy}
+              error={error}
+              onSave={() => void save()}
               onSectionChange={updateSection}
               onMoveSection={moveSection}
             />

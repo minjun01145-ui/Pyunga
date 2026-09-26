@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createTableTemplateDocument,
   getTableTemplateCellPlacements,
+  getTableTemplateColumnWidths,
   getTableTemplateFieldKeys,
   parseTableTemplateDocument,
 } from "./table-template";
@@ -153,6 +154,46 @@ describe("table template", () => {
         { cellIndex: 1, startColumn: 2, endColumn: 3 },
       ],
     ]);
+  });
+
+  it("combines widths from all rows and keeps unspecified columns visible", () => {
+    const document = createTableTemplateDocument([
+      [
+        { kind: "text", text: "A", colwidth: [100] },
+        { kind: "text", text: "B" },
+        { kind: "text", text: "C" },
+      ],
+      [
+        { kind: "text", text: "D" },
+        { kind: "text", text: "E", colwidth: [200] },
+        { kind: "text", text: "F" },
+      ],
+    ]);
+
+    expect(getTableTemplateColumnWidths(document)).toEqual([100, 200, 150]);
+    const reloaded = parseTableTemplateDocument(JSON.parse(JSON.stringify(document)));
+    expect(reloaded && getTableTemplateColumnWidths(reloaded)).toEqual([100, 200, 150]);
+  });
+
+  it("keeps every logical column automatic when no row has a width", () => {
+    const document = createTableTemplateDocument([
+      [{ kind: "text", text: "A" }, { kind: "text", text: "B" }],
+      [{ kind: "text", text: "C" }, { kind: "text", text: "D" }],
+    ]);
+
+    expect(getTableTemplateColumnWidths(document)).toEqual([null, null]);
+  });
+
+  it("maps widths through merged cells and rowspans", () => {
+    const document = createTableTemplateDocument([
+      [
+        { kind: "text", text: "A", rowspan: 2, colwidth: [90] },
+        { kind: "text", text: "B-C", colspan: 2, colwidth: [180, 120] },
+      ],
+      [{ kind: "text", text: "D", colwidth: [180] }, { kind: "text", text: "E", colwidth: [120] }],
+    ]);
+
+    expect(getTableTemplateColumnWidths(document)).toEqual([90, 180, 120]);
   });
 
   it("accepts long plain-text criteria inside a table cell", () => {

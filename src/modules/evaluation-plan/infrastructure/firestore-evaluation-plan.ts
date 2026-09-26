@@ -22,7 +22,27 @@ const calendarSnapshotSchema = z.array(z.object({
 })).max(500);
 
 export function evaluationPlanDocumentId(userId: string, context: TeacherEvaluationContext): string {
-  return createHash("sha256").update(JSON.stringify([userId, context.academicYear, context.semester, context.grade, context.subjectLabel])).digest("hex");
+  return createHash("sha256").update(JSON.stringify([
+    userId,
+    context.academicYear,
+    context.semester,
+    context.grade,
+    context.subjectId ?? context.subjectLabel,
+  ])).digest("hex");
+}
+
+export function legacyEvaluationPlanDocumentId(
+  userId: string,
+  context: TeacherEvaluationContext,
+  subjectLabel: string,
+): string {
+  return createHash("sha256").update(JSON.stringify([
+    userId,
+    context.academicYear,
+    context.semester,
+    context.grade,
+    subjectLabel,
+  ])).digest("hex");
 }
 
 export function evaluationPlanDraftStorageScope(schoolId: string, userId: string): string {
@@ -54,6 +74,51 @@ export async function listSavedEvaluationPlans(schoolId: string) {
     .limit(1001).execute();
   if (snapshot.results.length > 1000) throw new EvaluationPlanWorkflowError("조회 가능한 평가계획 수를 초과했습니다. 관리자에게 문의해 주세요.", 400);
   return snapshot.results.map((result) => evaluationPlanSummarySchema.parse(result.data()));
+}
+
+export async function loadTeacherEvaluationPlan(params: {
+  schoolId: string;
+  userId: string;
+  context: TeacherEvaluationContext;
+  legacySubjectLabel?: string;
+}): Promise<SavedEvaluationPlan | null> {
+  const currentId = evaluationPlanDocumentId(params.userId, params.context);
+  const current = await loadSavedEvaluationPlan(params.schoolId, currentId);
+  if (current) return current;
+
+  if (params.legacySubjectLabel) {
+    const legacyId = legacyEvaluationPlanDocumentId(params.userId, params.context, params.legacySubjectLabel);
+    if (legacyId !== currentId) {
+      const legacy = await loadSavedEvaluationPlan(params.schoolId, legacyId);
+      if (legacy && isPlanForTeacherContext(legacy, params.userId, params.context, params.legacySubjectLabel)) return legacy;
+    }
+  }
+
+  if (!params.context.subjectId) return null;
+  const summaries = await listSavedEvaluationPlans(params.schoolId);
+  const existing = summaries.find((plan) => isPlanForTeacherContext(
+    plan,
+    params.userId,
+    params.context,
+    params.legacySubjectLabel,
+  ));
+  return existing ? loadSavedEvaluationPlan(params.schoolId, existing.id) : null;
+}
+
+function isPlanForTeacherContext(
+  plan: Pick<SavedEvaluationPlan, "teacherUserId" | "context">,
+  userId: string,
+  context: TeacherEvaluationContext,
+  legacySubjectLabel?: string,
+): boolean {
+  if (plan.teacherUserId !== userId
+    || plan.context.academicYear !== context.academicYear
+    || plan.context.semester !== context.semester
+    || plan.context.grade !== context.grade) return false;
+  if (context.subjectId && plan.context.subjectId === context.subjectId) return true;
+  return !plan.context.subjectId
+    && Boolean(legacySubjectLabel)
+    && plan.context.subjectLabel === legacySubjectLabel;
 }
 
 export async function listApprovedEvaluationPlans(params: {
@@ -91,7 +156,7 @@ export async function listApprovedEvaluationPlans(params: {
 export async function writeEvaluationPlan(params: {
   profile: UserProfile; context: TeacherEvaluationContext; draft: EvaluationPlanDraft;
   template: EvaluationTemplate; templateRevision: number; calendarEvents: AcademicCalendarEvent[];
-  expectedRevision: number; action: "save" | "submit";
+  expectedRevision: number; action: "save" | "submit"; existingPlanId?: string;
 }): Promise<SavedEvaluationPlan> {
   const { profile, context, template, calendarEvents } = params;
   const draft = applyTeacherEvaluationContext(params.draft, context);
@@ -99,12 +164,24 @@ export async function writeEvaluationPlan(params: {
     const issues = getEvaluationPlanSubmissionIssues(template, draft, context, calendarEvents);
     if (issues.length) throw new EvaluationPlanWorkflowError(issues.slice(0, 10).join("\n"), 400);
   }
-  const id = evaluationPlanDocumentId(profile.id, context);
+  if (params.existingPlanId && !/^[a-f0-9]{64}$/.test(params.existingPlanId)) {
+    throw new EvaluationPlanWorkflowError("평가계획을 찾을 수 없습니다.", 404);
+  }
+  const id = params.existingPlanId ?? evaluationPlanDocumentId(profile.id, context);
   const reference = collection(profile.schoolId).doc(id);
   const templateReference = getFirebaseAdminDatabase().collection("schools").doc(profile.schoolId).collection("evaluationTemplates").doc("current");
   return getFirebaseAdminDatabase().runTransaction(async (transaction) => {
     const [snapshot, templateSnapshot] = await Promise.all([transaction.get(reference), transaction.get(templateReference)]);
     const current = snapshot.exists ? parseStoredPlan(snapshot.data()) : null;
+    if (params.existingPlanId && (!current
+      || current.teacherUserId !== profile.id
+      || current.context.academicYear !== context.academicYear
+      || current.context.semester !== context.semester
+      || current.context.grade !== context.grade
+      || !(current.context.subjectId === context.subjectId
+        || (!current.context.subjectId && current.context.subjectLabel === profile.subjectLabel)))) {
+      throw new EvaluationPlanWorkflowError("기존 평가계획을 현재 과목 분류와 연결할 수 없습니다.", 409);
+    }
     if ((current?.revision ?? 0) !== params.expectedRevision) throw new EvaluationPlanWorkflowError("다른 화면에서 먼저 저장했습니다. 최신 내용을 다시 불러온 뒤 수정해 주세요.");
     if ((templateSnapshot.data()?.revision ?? 0) !== params.templateRevision) throw new EvaluationPlanWorkflowError("학교 양식이 변경되었습니다. 최신 양식을 다시 불러와 주세요.");
     const status = transitionEvaluationPlan({ profile, teacherUserId: current?.teacherUserId ?? profile.id, status: current?.status ?? "draft", action: params.action });

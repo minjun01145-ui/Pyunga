@@ -49,7 +49,7 @@ vi.mock("@/shared/firebase/admin", () => {
   return { getFirebaseAdminDatabase: () => database };
 });
 
-import { evaluationPlanDocumentId, evaluationPlanDraftStorageScope, writeEvaluationPlan } from "./firestore-evaluation-plan";
+import { evaluationPlanDocumentId, evaluationPlanDraftStorageScope, legacyEvaluationPlanDocumentId, writeEvaluationPlan } from "./firestore-evaluation-plan";
 
 const profile: UserProfile = {
   id: "teacher-1",
@@ -80,6 +80,45 @@ describe("Firestore evaluation plan drafts", () => {
     expect(evaluationPlanDocumentId("teacher-1", context)).not.toBe(evaluationPlanDocumentId("teacher-1", { ...context, grade: 2 }));
     expect(evaluationPlanDraftStorageScope("school-1", "teacher-1")).not.toBe(evaluationPlanDraftStorageScope("school-2", "teacher-1"));
     expect(evaluationPlanDraftStorageScope("school-1", "teacher-1")).not.toBe(evaluationPlanDraftStorageScope("school-1", "teacher-2"));
+  });
+
+  it("keeps plan identity stable when a subject label changes", () => {
+    const assignedContext = { ...context, subjectId: "subject-1" };
+    expect(evaluationPlanDocumentId("teacher-1", { ...assignedContext, subjectLabel: "통합과학" }))
+      .toBe(evaluationPlanDocumentId("teacher-1", { ...assignedContext, subjectLabel: "과학" }));
+    expect(legacyEvaluationPlanDocumentId("teacher-1", context, "과학"))
+      .not.toBe(evaluationPlanDocumentId("teacher-1", assignedContext));
+  });
+
+  it("preserves a legacy document id when saving an existing plan", async () => {
+    const template = createDefaultEvaluationTemplate();
+    const first = await writeEvaluationPlan({
+      profile,
+      context,
+      draft: createEmptyEvaluationPlanDraft(context),
+      template,
+      templateRevision: firebase.templateRevision,
+      calendarEvents: [],
+      expectedRevision: 0,
+      action: "save",
+    });
+    const saved = await writeEvaluationPlan({
+      profile,
+      context,
+      draft: {
+        ...createEmptyEvaluationPlanDraft(context),
+        sections: { method: { fields: { description: "기존 과목 계획" } } },
+      },
+      template,
+      templateRevision: firebase.templateRevision,
+      calendarEvents: [],
+      expectedRevision: first.revision,
+      existingPlanId: first.id,
+      action: "save",
+    });
+
+    expect(saved.id).toBe(first.id);
+    expect(saved.revision).toBe(first.revision + 1);
   });
 
   it("does not write a server document when a draft save matches the last saved content", async () => {

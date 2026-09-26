@@ -38,7 +38,7 @@ export function RawEvaluationPlanPreviewWorkspace() {
         if (!response.ok) throw new Error(body.error ?? "평가계획 양식을 불러오지 못했습니다.");
         if (cancelled) return;
         setTemplate(body.template);
-        setTeacherContext(body.teacherContext);
+        setTeacherContext(body.savedPlan?.context ?? body.teacherContext);
         setCalendarEvents(body.calendarEvents);
         if (body.persistence === "server") {
           setDraft(body.savedPlan?.draft ?? createEmptyEvaluationPlanDraft(body.teacherContext));

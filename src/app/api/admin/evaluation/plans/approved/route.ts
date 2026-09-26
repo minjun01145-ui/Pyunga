@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 
 import { EVALUATION_MANAGEMENT_ROLES, isAuthenticationDisabled } from "@/modules/auth";
 import { RequestAuthenticationError, requireAuthenticatedProfile } from "@/modules/auth/server";
-import { EvaluationPlanWorkflowError } from "@/modules/evaluation-plan";
+import { EvaluationPlanWorkflowError, filterPlansForActiveSubjects } from "@/modules/evaluation-plan";
 import { listApprovedEvaluationPlans } from "@/modules/evaluation-plan/server";
+import { listSchoolSubjects } from "@/modules/school/server";
 import { loadEvaluationTemplateState } from "@/modules/template/server";
 
 export const runtime = "nodejs";
@@ -24,12 +25,12 @@ export async function GET(request: Request) {
       );
     }
 
-    const plans = await listApprovedEvaluationPlans({
+    const [plans, subjects] = await Promise.all([listApprovedEvaluationPlans({
       schoolId: profile.schoolId,
       academicYear: academicPeriod.academicYear,
       semester: academicPeriod.semester,
-    });
-    return NextResponse.json({ plans, academicPeriod, demoMode: false });
+    }), listSchoolSubjects(profile.schoolId)]);
+    return NextResponse.json({ plans: filterPlansForActiveSubjects(plans, subjects), academicPeriod, demoMode: false });
   } catch (error) {
     if (error instanceof RequestAuthenticationError || error instanceof EvaluationPlanWorkflowError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

@@ -169,9 +169,9 @@ export function AcademicCalendarImportWorkspace() {
   return (
     <div className="workspace-stack">
       <section className="panel">
-        <h2 className="subsection-title">교육계획서에서 학사일정 가져오기</h2>
+        <h2 className="subsection-title">학사일정 업로드</h2>
         <p className="muted small-copy">
-          PDF의 학사일정 관련 페이지를 찾아 AI로 문서에 기록된 일정을 구조화합니다. 분석 결과는 바로 저장되지 않으며, 아래 표에서 수정하고 확인합니다.
+          학사일정이 담긴 파일(PDF)을 업로드하면 분석하여 교수학습 계획표에 자동으로 작성합니다.
         </p>
         <form className="calendar-import-form" onSubmit={handleSubmit}>
           <label className="field calendar-year-field">
@@ -207,11 +207,6 @@ export function AcademicCalendarImportWorkspace() {
             {isLoading ? `분석 중 · ${elapsedSeconds}초` : "학사일정 분석"}
           </button>
         </form>
-        <p className="muted small-copy calendar-import-note">
-          {isLoading
-            ? "문서 분량에 따라 최대 4분 정도 걸릴 수 있습니다. 분석이 끝날 때까지 이 화면을 닫지 마세요."
-            : "업로드한 PDF의 관련 텍스트는 서버에서 추출된 뒤 설정된 AI 서비스로 전송됩니다. API 키는 브라우저로 전달하지 않습니다."}
-        </p>
         {error ? <p className="validation-error-box">{error}</p> : null}
       </section>
 

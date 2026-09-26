@@ -10,6 +10,7 @@ export type TeacherEvaluationContext = {
   academicYear: number;
   semester: AcademicSemester;
   grade: SchoolGrade;
+  subjectId?: string;
   subjectLabel: string;
 };
 
@@ -33,7 +34,7 @@ export function resolveTeacherEvaluationContext(params: {
   const grade = params.grade ?? profile?.teachingGrades[0];
   if (profile?.subjectLabel && academicPeriod && (grade === 1 || grade === 2 || grade === 3)
       && profile.teachingGrades.includes(grade)) {
-    return { ...academicPeriod, grade, subjectLabel: profile.subjectLabel };
+    return { ...academicPeriod, grade, subjectId: profile.subjectId, subjectLabel: profile.subjectLabel };
   }
   throw new TeacherEvaluationContextUnavailableError();
 }
